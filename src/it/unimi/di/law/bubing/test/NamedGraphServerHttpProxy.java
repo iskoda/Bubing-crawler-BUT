@@ -20,6 +20,8 @@ package it.unimi.di.law.bubing.test;
 
 import it.unimi.di.law.bubing.util.ByteArrayCharSequence;
 import it.unimi.di.law.bubing.util.MurmurHash3;
+import it.unimi.dsi.Util;
+import it.unimi.dsi.bits.Fast;
 import it.unimi.dsi.fastutil.io.BinIO;
 import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
 import it.unimi.dsi.fastutil.io.FastBufferedOutputStream;
@@ -37,6 +39,7 @@ import java.net.Socket;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang.StringEscapeUtils;
 
@@ -55,6 +58,8 @@ import com.martiansoftware.jsap.UnflaggedOption;
 /** An HTTP proxy that uses a {@link NamedGraphServer} to generate fake HTML pages contaning only links. */
 
 public class NamedGraphServerHttpProxy extends Thread {
+
+	private static AtomicLong busyTime = new AtomicLong();
 
 	/** Like a standard print writer, but it sleeps a random amount of time before printing each string (only the
 	 *  methods {@link #println(String)}, {@link #print(String)} and {@link #println()} are affected). 	*/
@@ -166,6 +171,7 @@ public class NamedGraphServerHttpProxy extends Thread {
 
 		public void run() {
 			try {
+				final long startTime = System.nanoTime();
 				final FastBufferedInputStream in = new FastBufferedInputStream( socket.getInputStream() );
 				byte[] array = new byte[ 4096 ];
 
@@ -252,13 +258,14 @@ public class NamedGraphServerHttpProxy extends Thread {
 
 				in.close();
 				socket.close();
+				busyTime.addAndGet(System.nanoTime() - startTime);
 			} catch ( IOException e ) {
 				e.printStackTrace();
 			}
 		}
 	}
 
-	@SuppressWarnings( { "unchecked", "resource" } )
+	@SuppressWarnings( { "unchecked" } )
 	public static void main( String[] arg ) throws IOException, JSAPException, ClassNotFoundException {
 		SimpleJSAP jsap = new SimpleJSAP( NamedGraphServerHttpProxy.class.getName(), "Starts a HTTP Proxy Server for a given named immutable graph.",
 				new Parameter[] {
@@ -326,10 +333,21 @@ public class NamedGraphServerHttpProxy extends Thread {
 		final Executor exec = Executors.newFixedThreadPool( numThreads );
 		final Semaphore stuckInCapriciousWriting = new Semaphore( Math.max( numThreads / 10, 1 ) );
 
-		for( ;; ) {
+		long lastReportTime = System.currentTimeMillis(), lastBusyTime = 0;
+		final long startTime = lastReportTime;
+		for (long i = 0;; i++) {
 			Task task = new Task( serverSocket.accept(), graphServer.copy(), stuckInCapriciousWriting, jsapResult.getInt( "generalPageSpeed" ), jsapResult.getDouble( "frac404" ), jsapResult.getDouble( "frac500" ), jsapResult.getDouble( "fracDelayed" ),
 					jsapResult.getLong( "averageDelay" ), jsapResult.getLong( "delayDeviation" ), jsapResult.getBoolean( "uniquify" ), jsapResult.getBoolean( "notescurl" ) );
 			exec.execute( task );
+			if ((i & 0xFFFF) != 0) {
+				final long currentTime = System.currentTimeMillis();
+				if (currentTime - lastReportTime > 10000) {
+					final long currentBusyTime = busyTime.get();
+					System.err.println( Util.format(currentBusyTime / 10000.0 / numThreads / (currentTime - startTime)) + "% [" + Util.format((currentBusyTime - lastBusyTime) / 10000.0 / numThreads / (currentTime - lastReportTime)) + "%]");
+					lastReportTime = currentTime;
+					lastBusyTime = currentBusyTime;
+				}
+			}
 		}
 	}
 }

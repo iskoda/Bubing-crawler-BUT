@@ -20,9 +20,9 @@ package it.unimi.di.law.warc.filters;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 
-import org.apache.commons.io.Charsets;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 
@@ -47,7 +47,7 @@ public class ResponseMatches extends AbstractFilter<HttpResponse> {
 	public boolean apply( final HttpResponse httpResponse ) {
 		try {
 			final InputStream content = httpResponse.getEntity().getContent();
-			return pattern.matcher( IOUtils.toString( content, Charsets.ISO_8859_1 ) ).matches();
+			return pattern.matcher( IOUtils.toString( content, StandardCharsets.ISO_8859_1 ) ).matches();
 		}
 		catch( IOException shouldntReallyHappen ) {
 			throw new RuntimeException( shouldntReallyHappen );

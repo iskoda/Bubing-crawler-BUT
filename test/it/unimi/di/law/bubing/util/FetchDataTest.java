@@ -31,6 +31,7 @@ import it.unimi.dsi.lang.MutableString;
 import java.io.IOException;
 import java.net.URI;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
 import org.apache.commons.configuration.BaseConfiguration;
 import org.apache.commons.configuration.ConfigurationException;
@@ -50,8 +51,6 @@ import org.apache.http.impl.cookie.BasicClientCookie;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import cern.colt.Arrays;
 
 import com.google.common.base.Charsets;
 

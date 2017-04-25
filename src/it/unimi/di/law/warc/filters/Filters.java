@@ -58,6 +58,7 @@ public class Filters {
 	 * @param f the filters.
 	 * @return the conjunction.
 	 */
+	@SafeVarargs
 	public static<T> Filter<T> and( final Filter<T>... f ) {
 		return new Filter<T>() {
 			public boolean apply( final T x ) {
@@ -71,7 +72,7 @@ public class Filters {
 
 			@Override
 			public Filter<T> copy() {
-				return and( Filters.copy( f ) );
+				return Filters.and( Filters.copy( f ) );
 			}
 		};
 	}
@@ -82,6 +83,7 @@ public class Filters {
 	 * @param f the filters.
 	 * @return the disjunction.
 	 */
+	@SafeVarargs
 	public static<T> Filter<T> or( final Filter<T>... f ) {
 		return new Filter<T>() {
 			public boolean apply( final T x ) {
@@ -95,7 +97,7 @@ public class Filters {
 
 			@Override
 			public Filter<T> copy() {
-				return or( Filters.copy( f ) );
+				return Filters.or( Filters.copy( f ) );
 			}
 
 		};

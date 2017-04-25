@@ -19,11 +19,9 @@ package it.unimi.di.law.warc.io;
  */
 
 //RELEASE-STATUS: DIST
-
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import it.unimi.di.law.warc.io.gzarc.GZIPArchive.FormatException;
-import it.unimi.di.law.warc.records.WarcRecord;
+import static org.junit.Assert.assertTrue;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -38,22 +36,31 @@ import org.apache.http.HttpEntity;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.base.Charsets;
+
+import it.unimi.di.law.warc.io.gzarc.GZIPArchive.FormatException;
+import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
+import it.unimi.di.law.warc.records.WarcRecord;
+
 public class CompressedWarcCachingReaderTest {
 	
 	final static int TEST_RECORDS = 200;
-	final static String PATH = "/tmp/warc.gz";
+	final static String PATH0 = "/tmp/warc0.gz";
+	final static String PATH1 = "/tmp/warc1.gz";
 
 	static int[] position;
 
 	@BeforeClass
 	public static void init() throws IOException, InterruptedException {
-		final WarcRecord[] randomRecords = RandomReadWritesTest.prepareRndRecords();
-		position = RandomReadWritesTest.writeRecords( PATH, TEST_RECORDS, randomRecords, 1 ); // 1 stands for compressed!
+		WarcRecord[] randomRecords = RandomReadWritesTest.prepareRndRecords();
+		position = RandomReadWritesTest.writeRecords(PATH0, TEST_RECORDS, randomRecords, 1); // 1 stands for compressed!
+		randomRecords = RandomReadWritesTest.prepareRndRecords(2, 1);
+		RandomReadWritesTest.writeRecords(PATH1, TEST_RECORDS, randomRecords, 1); // 1 stands for compressed!
 	}
 
 	@Test
 	public void sequentialReads() throws WarcFormatException, FormatException, IOException {
-		FileInputStream input = new FileInputStream( PATH );
+		FileInputStream input = new FileInputStream( PATH0 );
 		CompressedWarcCachingReader cwc = new CompressedWarcCachingReader( input );
 		WarcReader wr;
 		int i = 0;
@@ -69,7 +76,7 @@ public class CompressedWarcCachingReaderTest {
 		if ( r instanceof it.unimi.di.law.warc.records.HttpResponseWarcRecord ) {
 			final HttpEntity entity = ((it.unimi.di.law.warc.records.HttpResponseWarcRecord)r).getEntity();
 			final InputStream is = entity.getContent();
-			final String throwAway = IOUtils.toString( is );
+			final String throwAway = IOUtils.toString( is, Charsets.ISO_8859_1 );
 			is.close();
 		} else {
 			 final Header[] headers = ((it.unimi.di.law.warc.records.HttpRequestWarcRecord)r).getAllHeaders();
@@ -79,7 +86,7 @@ public class CompressedWarcCachingReaderTest {
 	
 	@Test
 	public void idempotentReads() throws WarcFormatException, FormatException, IOException {
-		FileInputStream input = new FileInputStream( PATH );
+		FileInputStream input = new FileInputStream( PATH0 );
 		CompressedWarcCachingReader cwc = new CompressedWarcCachingReader( input );
 		WarcReader wr;
 		int i = 0;
@@ -96,7 +103,7 @@ public class CompressedWarcCachingReaderTest {
 
 	@Test
 	public void randomReads() throws WarcFormatException, FormatException, IOException {
-		FileInputStream input = new FileInputStream( PATH );
+		FileInputStream input = new FileInputStream( PATH0 );
 		CompressedWarcCachingReader cwc = new CompressedWarcCachingReader( input );
 		final ArrayList<WarcReader> cache = new ArrayList<WarcReader>( position.length );
 		WarcReader wr;
@@ -115,5 +122,86 @@ public class CompressedWarcCachingReaderTest {
 		assertArrayEquals( sortedPosition, result );
 		input.close();
 	}
+
+	@Test
+	public void parallelReadsSameThread() throws WarcFormatException, FormatException, IOException {
+		FileInputStream input = new FileInputStream( PATH1 );
+		CompressedWarcCachingReader cwc = new CompressedWarcCachingReader( input );
+		byte[] c0 = IOUtils.toByteArray(((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent());
+		byte[] c1 = IOUtils.toByteArray(((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent());
+		input.close();
+
+		input = new FileInputStream( PATH1 );
+		cwc = new CompressedWarcCachingReader( input );
+		InputStream i0 = ((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent();
+		InputStream i1 = ((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent();
+
+		final int l = Math.min(c0.length, c1.length);
+		for (int i = 0; i < l; i++) {
+			int b0 = i0.read();
+			int b1 = i1.read();
+			assertTrue(b0 >= 0);
+			assertTrue(b1 >= 0);
+			assertEquals(b0, c0[i] & 0xFF);
+			assertEquals(b1, c1[i] & 0xFF);
+		}
+
+		input.close();
+	}
 	
+	@Test
+	public void parallelReadsManyThreads() throws Throwable {
+		FileInputStream input = new FileInputStream( PATH1 );
+		CompressedWarcCachingReader cwc = new CompressedWarcCachingReader( input );
+		byte[][] c = { IOUtils.toByteArray(((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent()),
+			IOUtils.toByteArray(((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent()),
+			IOUtils.toByteArray(((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent()),
+			IOUtils.toByteArray(((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent()),
+			IOUtils.toByteArray(((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent()),
+			IOUtils.toByteArray(((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent()),
+			IOUtils.toByteArray(((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent()),
+			IOUtils.toByteArray(((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent()),
+		};
+		input.close();
+
+		input = new FileInputStream( PATH1 );
+		cwc = new CompressedWarcCachingReader( input );
+		InputStream[] is = { ((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent(),
+				((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent(),
+				((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent(),
+				((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent(),
+				((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent(),
+				((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent(),
+				((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent(),
+				((HttpResponseWarcRecord)cwc.cache().read()).getEntity().getContent(),
+		};
+
+		Thread[] thread = new Thread[8];
+		final Throwable[] throwable = new Throwable[1];
+		for(int u = 0; u < 8; u++) {
+			final int t = u;
+			thread[t] = new Thread() {
+				public void run() {
+					final int l = c[t].length;
+					for (int i = 0; i < l; i++) {
+						int b;
+						try {
+							b = is[t].read();
+							assertTrue(b >= 0);
+							assertEquals(b, c[t][i] & 0xFF);
+						} catch (Throwable t) {
+							throwable[0] = t;
+							throw new RuntimeException( t.getMessage(), t );
+						}
+					}
+				}
+			};
+		};
+
+		for(int t = 0; t < 8; t++) thread[t].start();
+		for(int t = 0; t < 8; t++) thread[t].join();
+		if (throwable[0] != null) throw throwable[0];
+		input.close();
+	}
+
 }

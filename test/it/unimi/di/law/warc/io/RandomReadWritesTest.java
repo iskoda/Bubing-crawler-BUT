@@ -78,14 +78,18 @@ public class RandomReadWritesTest {
 		return prepareRndRecords( RND_RECORDS, RESPONSE_PROBABILITY, MAX_NUMBER_OF_HEADERS, MAX_LENGTH_OF_HEADER, MAX_LENGTH_OF_BODY );
 	}	
 
-	public static WarcRecord[] prepareRndRecords( final int numRecords, final float responseProbablity, final int maxNumberOfHeaders, final int maxLenghtOfHeader, final int maxLengthOfBody ) throws IOException {
+	public static WarcRecord[] prepareRndRecords( final int numRecords, final float responseProbability) throws IOException {
+		return prepareRndRecords( numRecords, responseProbability,  MAX_NUMBER_OF_HEADERS, MAX_LENGTH_OF_HEADER, MAX_LENGTH_OF_BODY );
+	}
+
+	public static WarcRecord[] prepareRndRecords( final int numRecords, final float responseProbability, final int maxNumberOfHeaders, final int maxLenghtOfHeader, final int maxLengthOfBody ) throws IOException {
 		final WarcRecord[] randomRecords = new WarcRecord[ numRecords ];
 		URI fakeUri = null;
 		try {
 			fakeUri = new URI( "http://this.is/a/fake" );
 		} catch ( URISyntaxException ignored ) {}
 		for ( int pos = 0; pos < numRecords; pos++ ) {
-			if ( RandomTestMocks.RNG.nextFloat() < responseProbablity )
+			if ( RandomTestMocks.RNG.nextFloat() < responseProbability )
 				randomRecords[ pos ] = new HttpResponseWarcRecord( fakeUri, new RandomTestMocks.HttpResponse( maxNumberOfHeaders, maxLenghtOfHeader, maxLengthOfBody, pos ), BufferedHttpEntityFactory.INSTANCE );
 			else
 				randomRecords[ pos ] = new HttpRequestWarcRecord( fakeUri, new RandomTestMocks.HttpRequest( maxNumberOfHeaders, maxLenghtOfHeader, pos ) );

@@ -4,7 +4,7 @@
 	<credentials host="jars.law.di.unimi.it" realm="Sonatype Nexus Repository Manager" username="lawdevel" passwd="l4w"/>
 	<resolvers>
 		<ibiblio name="sonatype" m2compatible="true" root="https://oss.sonatype.org/content/repositories/public/"/>
-		<ibiblio name="oracle" m2compatible="true" root="https://download.oracle.com/maven"/>
+		<!-- <ibiblio name="oracle" m2compatible="true" root="https://download.oracle.com/maven"/> -->
 		<ibiblio name="law-snapshots" m2compatible="true" root="http://jars.law.di.unimi.it/content/repositories/snapshots" checkmodified="true" changingPattern=".*-SNAPSHOT"/>
 		<ibiblio name="law-public" m2compatible="true" root="http://jars.law.di.unimi.it/content/repositories/public/"/>
 
@@ -12,7 +12,7 @@
 			<resolver ref="local"/>
 			<resolver ref="law-snapshots"/>
 			<resolver ref="law-public"/>
-			<resolver ref="oracle"/>
+			<!-- <resolver ref="oracle"/> -->
 			<resolver ref="sonatype"/>
 			<resolver ref="main"/>
 		</chain>

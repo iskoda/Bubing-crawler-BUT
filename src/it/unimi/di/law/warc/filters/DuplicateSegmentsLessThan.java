@@ -84,6 +84,7 @@ public class DuplicateSegmentsLessThan extends AbstractFilter<URI> {
 	 * @param url the URI to be filtered
 	 * @return <code>true</code> if the path contains a number of duplicate segments less than a threshold
 	 */
+	@SuppressWarnings("serial")
 	@Override
 	public boolean apply( final URI url ) {
 		

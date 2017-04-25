@@ -180,7 +180,7 @@ public final class FetchingThread extends Thread implements Closeable {
 		
 		cookieStore = new BasicCookieStore();
 		httpClient = HttpClients.custom()
-				.setSslcontext( TRUST_SELF_SIGNED_SSL_CONTEXT )
+				.setSSLContext( TRUST_SELF_SIGNED_SSL_CONTEXT )
 				.setConnectionManager( connManager )
 				.setConnectionReuseStrategy( frontier.rc.keepAliveTime == 0 ? NoConnectionReuseStrategy.INSTANCE : DefaultConnectionReuseStrategy.INSTANCE )
 				.setUserAgent( frontier.rc.userAgent )

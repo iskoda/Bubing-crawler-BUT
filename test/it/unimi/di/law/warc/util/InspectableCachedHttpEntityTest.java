@@ -25,6 +25,7 @@ import it.unimi.di.law.warc.records.RandomTestMocks;
 import it.unimi.dsi.fastutil.io.InspectableFileCachedInputStream;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.io.IOUtils;
 import org.junit.Test;
@@ -44,7 +45,7 @@ public class InspectableCachedHttpEntityTest {
 		final InspectableCachedHttpEntity wrappedEntity = new InspectableCachedHttpEntity( inputStream );
 		wrappedEntity.setEntity( mockResponse.getEntity() );
 		wrappedEntity.copyContent( Long.MAX_VALUE, System.currentTimeMillis(), Long.MAX_VALUE, 0 );
-		assertEquals( mockResponse.getMockContent(), IOUtils.toString( wrappedEntity.getContent() ) );
+		assertEquals( mockResponse.getMockContent(), IOUtils.toString( wrappedEntity.getContent(), StandardCharsets.ISO_8859_1 ) );
 		inputStream.close();
 	}
 	

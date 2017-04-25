@@ -323,9 +323,10 @@ public class ParallelFilteredProcessorRunner {
 		final String[] packages = new String[] { ParallelFilteredProcessorRunner.class.getPackage().getName() };
 		final PrintStream[] ops = new PrintStream[ processor.length ];
 		for ( int i = 0; i < processor.length; i++ ) {
-			ops[ i ] = "-".equals( output[ i ] ) ? System.out : new PrintStream( new FastBufferedOutputStream( new FileOutputStream( output[ i ] ) ), false, "UTF-8" ); 
-			parallelFilteredProcessorRunner.add( ObjectParser.fromSpec( processor[ i ], Processor.class, packages, new String[] { "getInstance" } ),
-					ObjectParser.fromSpec( writer[ i ], Writer.class,  packages, new String[] { "getInstance" } ),
+			ops[ i ] = "-".equals( output[ i ] ) ? System.out : new PrintStream( new FastBufferedOutputStream( new FileOutputStream( output[ i ] ) ), false, "UTF-8" );
+			// TODO: these casts to SOMETHING<Object> are necessary for compilation under Eclipse. Check in the future.
+			parallelFilteredProcessorRunner.add( (Processor<Object>)ObjectParser.fromSpec( processor[ i ], Processor.class, packages, new String[] { "getInstance" } ),
+					(Writer<Object>)ObjectParser.fromSpec( writer[ i ], Writer.class,  packages, new String[] { "getInstance" } ),
 					ops[ i ] );
 		}
 		

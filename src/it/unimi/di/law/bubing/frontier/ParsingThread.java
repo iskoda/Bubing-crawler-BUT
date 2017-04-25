@@ -368,7 +368,7 @@ public class ParsingThread extends Thread {
 								frontier.outdegree.add( linkReceiver.size() );
 								String currentHost = url.getHost();
 								int currentOutHostDegree = 0;
-								for( URI u: linkReceiver ) if( currentHost.equals( u.getHost() ) ) currentOutHostDegree++;
+								for( URI u: linkReceiver ) if( ! currentHost.equals( u.getHost() ) ) currentOutHostDegree++;
 								frontier.externalOutdegree.add( currentOutHostDegree );
 							}
 							else if ( LOGGER.isDebugEnabled() ) LOGGER.debug( "I'm not parsing page " + url );

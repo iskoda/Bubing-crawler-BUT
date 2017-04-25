@@ -18,11 +18,6 @@ package it.unimi.di.law.warc.io.gzarc;
  *
  */
 
-// RELEASE-STATUS: DIST
-
-import it.unimi.dsi.fastutil.io.FastByteArrayInputStream;
-import it.unimi.dsi.fastutil.io.RepositionableStream;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -37,12 +32,17 @@ import org.slf4j.LoggerFactory;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CountingInputStream;
 
+import it.unimi.dsi.fastutil.io.FastByteArrayInputStream;
+import it.unimi.dsi.fastutil.io.RepositionableStream;
+
+// RELEASE-STATUS: DIST
+
 public class GZIPArchiveReader {
 	
 	private final static Logger LOGGER = LoggerFactory.getLogger( GZIPArchiveReader.class );
 
 	private final CRC32 crc = new CRC32();
-	private final Inflater inflater = new Inflater( true );
+	
 	private static final int HEADER_BUFFER_SIZE = 16384;
 	private final byte[] headerBuffer = new byte[ HEADER_BUFFER_SIZE ]; 
 
@@ -65,13 +65,13 @@ public class GZIPArchiveReader {
 	
 	public GZIPArchive.ReadEntry skipEntry() throws IOException {
 		
-		final long headerCount = this.input.getCount();
+		final long headerCount = input.getCount();
 		final GZIPArchive.ReadEntry entry = readHeader(); 
-		final long compressedBlockCount = this.input.getCount();
+		final long compressedBlockCount = input.getCount();
 		if ( entry == null ) return null;
 		
 		final long reminingCompressedBytes = entry.compressedSkipLength - ( compressedBlockCount - headerCount ) - GZIPArchive.TRAILER_LEN;
-		this.input.skip( reminingCompressedBytes );
+		input.skip( reminingCompressedBytes );
 		readTrailer( entry );
 		
 		return entry;
@@ -79,14 +79,13 @@ public class GZIPArchiveReader {
 	
 	public GZIPArchive.ReadEntry getEntry( final boolean cached ) throws IOException {
 		
-		final long headerCount = this.input.getCount();
+		final long headerCount = input.getCount();
 		final GZIPArchive.ReadEntry entry = readHeader(); 
-		final long compressedBlockCount = this.input.getCount();
+		final long compressedBlockCount = input.getCount();
 		if ( entry == null ) return null;
 		
 		final long reminingCompressedBytes = entry.compressedSkipLength - ( compressedBlockCount - headerCount ) - GZIPArchive.TRAILER_LEN;
 		final InputStream limitInputStream = ByteStreams.limit( input, reminingCompressedBytes );
-		@SuppressWarnings("resource")
 		final InputStream boundingInputStream = cached ? new FastByteArrayInputStream( ByteStreams.toByteArray( limitInputStream ) ) : limitInputStream;
 
 		entry.lazyInflater = new GZIPArchive.ReadEntry.LazyInflater() { 
@@ -94,8 +93,8 @@ public class GZIPArchiveReader {
 			private InputStream inflaterInputStream;
 			
 			@Override
-			public void consume() throws IOException  {
-				
+			public void consume() throws IOException  {			    	
+			    	
 				// This must be called after get!
 				
 				if ( inflaterInputStream == null && ! cached ) throw new IllegalStateException( "Can't call 'consume' before 'get' if not cached" );
@@ -111,7 +110,7 @@ public class GZIPArchiveReader {
 					if ( LOGGER.isTraceEnabled() ) LOGGER.trace( "Read remaining {} compressed bytes", Long.valueOf( read ) );
 				}
 
-				assert input.getCount() - compressedBlockCount == reminingCompressedBytes : "Wrong reminingCompressedBytes check.";
+				assert input.getCount() - compressedBlockCount == reminingCompressedBytes : "Wrong reminingCompressedBytes after consuming content.";
 
 				// Read and check trailer
 				
@@ -125,14 +124,13 @@ public class GZIPArchiveReader {
 
 				// We can't close any involved stream since it will popup to 'input'
 
-				assert ! cached || reminingCompressedBytes == ((FastByteArrayInputStream)boundingInputStream).available();  
+				assert ! cached || reminingCompressedBytes == ((FastByteArrayInputStream)boundingInputStream).available() : "Wrong reminingCompressedBytes after reading the trailer";  
 
 			}
 			
 			@Override
 			public InputStream get() throws IOException {
-					
-				inflater.reset();
+				Inflater inflater = new Inflater(true);
 				crc.reset();
 				
 				if ( cached ) ((FastByteArrayInputStream)boundingInputStream).position( 0 ); // TODO: see if we can cache the decompressed stream
@@ -141,7 +139,7 @@ public class GZIPArchiveReader {
 					new InflaterInputStream( boundingInputStream, inflater ) : 
 					new CheckedInputStream( new InflaterInputStream( boundingInputStream, inflater ), crc );
 				
-				assert ! cached || reminingCompressedBytes == ((FastByteArrayInputStream)boundingInputStream).available();  
+				assert ! cached || reminingCompressedBytes == ((FastByteArrayInputStream)boundingInputStream).available() : "Wrong reminingCompressedBytes count after get";  
 			
 				return inflaterInputStream;
 
@@ -184,7 +182,7 @@ public class GZIPArchiveReader {
 			
 		// ID1 ID2 CM FLG
 			
-		if ( this.input.read( buffer, 0, 4 ) == -1 ) return null;
+		if ( input.read( buffer, 0, 4 ) == -1 ) return null;
 		
 		if ( buffer[ 0 ] != GZIPArchive.GZIP_START[ 0 ] || buffer[ 1 ] != GZIPArchive.GZIP_START[ 1 ] ) throw new GZIPArchive.FormatException( "Missing GZip magic numbers, found: " + buffer[0] + " " + buffer[1] );
 		if ( buffer[ 2 ] != GZIPArchive.GZIP_START[ 2 ] ) throw new GZIPArchive.FormatException( "Unknown compression method: " + buffer[ 2 ] );
@@ -192,7 +190,7 @@ public class GZIPArchiveReader {
 		
 		// MTIME
 		
-		entry.mtime = readLEInt( this.input );
+		entry.mtime = readLEInt( input );
 		
 		// XFL OS (ignored)
 		
@@ -206,29 +204,29 @@ public class GZIPArchiveReader {
 	
 			// XLEN 
 			
-			short xlen = readLEShort( this.input );
+			short xlen = readLEShort( input );
 	
 			while ( xlen > 0 ) {
 				
 				// SI1 SI2
 				
-				this.input.read( buffer, 0, 2 );
+				input.read( buffer, 0, 2 );
 				
 				// LEN
 				
-				short len = readLEShort( this.input );
+				short len = readLEShort( input );
 				
 				if ( buffer[ 0 ] == GZIPArchive.SKIP_LEN[ 0 ] && buffer[ 1 ] == GZIPArchive.SKIP_LEN[ 1 ] ) {
-					entry.compressedSkipLength = readLEInt( this.input );
-					entry.uncompressedSkipLength = readLEInt( this.input );
-				} else this.input.read( buffer, 0, len );
+					entry.compressedSkipLength = readLEInt( input );
+					entry.uncompressedSkipLength = readLEInt( input );
+				} else input.read( buffer, 0, len );
 				
 				xlen -= len + GZIPArchive.SKIP_LEN.length + GZIPArchive.SHORT_LEN; // SI1,  SI2 + 1 short encoding LEN
 	
 			}
-		}
+		} else throw new GZIPArchive.FormatException( "Missing SL extra field" );
 		
-		if ( entry.compressedSkipLength < 0 ) throw new GZIPArchive.FormatException( "Missing SL extra field, or negative compressed-skip-length" );
+		if (entry.compressedSkipLength < 0) throw new GZIPArchive.FormatException("Negative compressed-skip-length (" + entry.compressedSkipLength + ")");
 		
 		/* EXTRA end */
 				

@@ -21,17 +21,14 @@ package it.unimi.di.law.warc.io.gzarc;
 //RELEASE-STATUS: DIST
 
 import static org.junit.Assert.assertArrayEquals;
-import it.unimi.di.law.bubing.util.Util;
-import it.unimi.di.law.warc.io.gzarc.GZIPArchive.ReadEntry;
-import it.unimi.di.law.warc.io.gzarc.GZIPArchive.ReadEntry.LazyInflater;
-import it.unimi.dsi.fastutil.io.FastBufferedInputStream;
-import it.unimi.dsi.fastutil.longs.LongBigArrayBigList;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 import org.apache.commons.lang.RandomStringUtils;
 import org.junit.Test;
@@ -45,152 +42,85 @@ import com.martiansoftware.jsap.SimpleJSAP;
 import com.martiansoftware.jsap.Switch;
 import com.martiansoftware.jsap.UnflaggedOption;
 
+import it.unimi.di.law.bubing.util.Util;
+import it.unimi.di.law.warc.io.gzarc.GZIPArchive.ReadEntry;
+import it.unimi.di.law.warc.io.gzarc.GZIPArchive.ReadEntry.LazyInflater;
+
 public class GZIPArchiveWriterTest {
 
-	@Test
-	public void smallEntry() throws IOException {
-		FileOutputStream fos = new FileOutputStream( "/tmp/archive.gz" );
-		GZIPArchiveWriter gzaw = new GZIPArchiveWriter( fos );
-		GZIPArchive.WriteEntry we;
-		for ( int i = 0; i < 10; i++ ) {
-			we = gzaw.getEntry( "Test " + i, "Comment " + i, new Date() );
-			we.deflater.write( Util.toByteArray( "Hello, world " + i + "!\n" ) );
-			we.deflater.close();
-			System.out.println( we );
-		}
-		gzaw.close();
-		
-		FileInputStream fis = new FileInputStream( "/tmp/archive.gz" );
-		GZIPArchiveReader gzar = new GZIPArchiveReader( fis );
-		GZIPArchive.ReadEntry re;
-		for ( ;; ) {
-			re = gzar.getEntry();
-			if ( re == null ) break;
-			LazyInflater lin = re.lazyInflater;
-			System.out.print( Util.toString( ByteStreams.toByteArray( lin.get() ) ) );
-			lin.consume();
-			System.out.println( re );
-		}
-		fis.close();
+    /*
+     * Populates an archive with the prescribed number of entries, returning the
+     * written entries. If randomized the i-th entry is
+     * 
+     * "MAGIC" + RandomStringUtils.randomAscii(1024 * (1 + i)) :
+     * 
+     * if not randomized is
+     * 
+     * "Hello, world " + i + "!\n"
+     * 
+     */
+    public static List<byte[]> writeArchive(final String path, final int n, final boolean randomized) throws IOException {
+	FileOutputStream fos = new FileOutputStream(path);
+	GZIPArchiveWriter gzaw = new GZIPArchiveWriter(fos);
+	GZIPArchive.WriteEntry we;
+	List<byte[]> contents = new ArrayList<byte[]>();
+	for (int i = 0; i < n; i++) {
+	    we = gzaw.getEntry("Test " + i, "Comment " + i, new Date());
+	    final byte[] content = Util.toByteArray(
+		    randomized ? "MAGIC" + RandomStringUtils.randomAscii(1024 * (1 + i)) : "Hello, world " + i + "!\n");
+	    we.deflater.write(content);
+	    contents.add(content);
+	    we.deflater.close();
 	}
+	gzaw.close();
+	return contents;
+    }
 
-	@Test
-	public void skip() throws IOException {
-		FileOutputStream fos = new FileOutputStream( "/tmp/archive.gz" );
-		GZIPArchiveWriter gzaw = new GZIPArchiveWriter( fos );
-		GZIPArchive.WriteEntry we;
-		for ( int i = 0; i < 10; i++ ) {
-			we = gzaw.getEntry( "Test " + i, "Comment " + i, new Date() );
-			we.deflater.write( Util.toByteArray( "Hello, world " + i + "!\n" ) );
-			we.deflater.close();
-		}
-		gzaw.close();
-		
-		final LongBigArrayBigList pos = GZIPIndexer.index( new FileInputStream( "/tmp/archive.gz" ) );
-				
-		GZIPArchive.ReadEntry re;
-		FastBufferedInputStream fis = new FastBufferedInputStream( new FileInputStream( "/tmp/archive.gz" ) );
-		GZIPArchiveReader gzar = new GZIPArchiveReader( fis );
-		for ( int i = (int)pos.size64() - 1; i >= 0; i-- ) {
-			gzar.position( pos.getLong( i ) );
-			re = gzar.getEntry();
-			if ( re == null ) break;
-			System.out.println( re );
-		}
-		fis.close();
-		
+    public static final String ARCHIVE_PATH = "/tmp/archive.gz";
+    public static final int ARCHIVE_SIZE = 1024;
+    
+    @Test
+    public void readWrite() throws IOException {
+	List<byte[]> contents = writeArchive(ARCHIVE_PATH, ARCHIVE_SIZE, false);
+	FileInputStream fis = new FileInputStream(ARCHIVE_PATH);
+	GZIPArchiveReader gzar = new GZIPArchiveReader(fis);
+	GZIPArchive.ReadEntry re;
+	for (byte[] expected: contents) {
+	    re = gzar.getEntry();
+	    if (re == null) break;
+	    LazyInflater lin = re.lazyInflater;
+	    final byte[] actual = ByteStreams.toByteArray(lin.get());
+	    assertArrayEquals(expected, actual);
+	    lin.consume();
 	}
+	fis.close();
+    }
 
-	@Test
-	public void randomEntry() throws IOException {
-		
-		byte[] expectedMagic = Util.toByteArray( "MAGIC" );
-		byte[] actualMagic = new byte[ expectedMagic.length ];
-		
-		FileOutputStream fos = new FileOutputStream( "/tmp/archive.gz" );
-		GZIPArchiveWriter gzaw = new GZIPArchiveWriter( fos );
-		GZIPArchive.WriteEntry we;
-		for ( int i = 0; i < 10; i++ ) {
-			we = gzaw.getEntry( "Test " + i, "Comment " + i, new Date() );
-			we.deflater.write( expectedMagic );
-			we.deflater.write( Util.toByteArray( RandomStringUtils.randomAscii( 1024 * ( 1 + i ) ) ) );
-			we.deflater.close();
-			System.out.println( we );
-		}
-		gzaw.close();		
-		
-		FileInputStream fis = new FileInputStream( "/tmp/archive.gz" );
-		GZIPArchiveReader gzar = new GZIPArchiveReader( fis );
-		InputStream in;
-		
-		GZIPArchive.ReadEntry re;
-		for ( int i = 0; i < 11; i++ ) {
-			re = gzar.getEntry();
-			if ( re == null ) break;
-			LazyInflater lin = re.lazyInflater;
-			in = lin.get();
-			in.read( actualMagic );
-			assertArrayEquals( expectedMagic, actualMagic );
-			for ( int j = 0; j < ( i + 1 ) * 512; j++ ) in.read();
-			lin.consume();
-			System.out.println( re );
-		}
-		fis.close();
+    public static void main(String[] args) throws IOException, JSAPException {
 
-		fis = new FileInputStream( "/tmp/archive.gz" );
-		gzar = new GZIPArchiveReader( fis );
-		for ( int i = 0; i < 11; i++ ) {
-			re = gzar.getEntry();
-			if ( re == null ) break;
-			LazyInflater lin = re.lazyInflater;
-			in = lin.get();
-			in.read( actualMagic );
-			System.out.println( Util.toString( actualMagic ) );
-			while ( in.read() != -1 );
-			lin.consume();
-			System.out.println( re );
-		}
-		fis.close();
+	SimpleJSAP jsap = new SimpleJSAP(GZIPArchiveReader.class.getName(), "Writes some random records on disk.",
+		new Parameter[] {
+			new Switch("fully", 'f', "fully",
+				"Whether to read fully the record (and do a minimal cosnsistency check)."),
+			new UnflaggedOption("path", JSAP.STRING_PARSER, JSAP.NO_DEFAULT, JSAP.REQUIRED, JSAP.NOT_GREEDY,
+				"The path to read from."), });
 
-		fis = new FileInputStream( "/tmp/archive.gz" );
-		gzar = new GZIPArchiveReader( fis );
-		for ( int i = 0; i < 11; i++ ) {
-			re = gzar.getEntry();
-			if ( re == null ) break;
-			LazyInflater lin = re.lazyInflater;
-			in = lin.get();
-			in.read( actualMagic );
-			assertArrayEquals( expectedMagic, actualMagic );
-			System.out.println( Util.toString( actualMagic ) );
-			in.skip( Long.MAX_VALUE );
-			lin.consume();
-			System.out.println( re );
-		}
-		fis.close();
+	JSAPResult jsapResult = jsap.parse(args);
+	if (jsap.messagePrinted())
+	    System.exit(1);
 
+	final boolean fully = jsapResult.getBoolean("fully");
+	GZIPArchiveReader gzar = new GZIPArchiveReader(new FileInputStream(jsapResult.getString("path")));
+	for (;;) {
+	    ReadEntry e = gzar.getEntry();
+	    if (e == null)
+		break;
+	    InputStream inflater = e.lazyInflater.get();
+	    if (fully)
+		ByteStreams.toByteArray(inflater);
+	    e.lazyInflater.consume();
+	    System.out.println(e);
 	}
+    }
 
-	public static void main( String[] args ) throws IOException, JSAPException {
-		
-		SimpleJSAP jsap = new SimpleJSAP( GZIPArchiveReader.class.getName(), "Writes some random records on disk.",
-				new Parameter[] {
-					new Switch( "fully", 'f', "fully", "Whether to read fully the record (and do a minimal cosnsistency check)."),
-					new UnflaggedOption( "path", JSAP.STRING_PARSER, JSAP.NO_DEFAULT, JSAP.REQUIRED, JSAP.NOT_GREEDY, "The path to read from." ),
-			} );
-
-			JSAPResult jsapResult = jsap.parse( args );
-			if ( jsap.messagePrinted() ) System.exit( 1 );
-
-		final boolean fully = jsapResult.getBoolean( "fully" );
-		GZIPArchiveReader gzar = new GZIPArchiveReader( new FileInputStream( jsapResult.getString( "path" ) ) );
-		for ( ;; ) {
-			ReadEntry e = gzar.getEntry();
-			if ( e == null ) break;
-			InputStream inflater = e.lazyInflater.get();
-			if ( fully ) ByteStreams.toByteArray( inflater );
-			e.lazyInflater.consume();
-			System.out.println( e );
-		}
-	}
-	
 }

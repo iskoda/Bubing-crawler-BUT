@@ -37,7 +37,6 @@
 		<dependency org="it.unimi.dsi" name="webgraph" rev="latest.release"/>
 		<dependency org="it.unimi.dsi" name="webgraph-big" rev="latest.release"/>
 		<dependency org="it.unimi.dsi" name="sux4j" rev="latest.release" />
-		<dependency org="it.unimi.di" name="mg4j-big" rev="latest.release" />
 
 		<dependency org="com.sleepycat" name="je" rev="latest.release"/>
 		<dependency org="dnsjava" name="dnsjava" rev="latest.release"/>
@@ -46,6 +45,9 @@
 		<dependency org="org.apache.httpcomponents"  name="httpcore" rev="latest.release"/>
 		<dependency org="org.apache.httpcomponents" name="httpclient" rev="latest.release"/>
 		<!-- <dependency org="org.apache.httpcomponents" name="httpasyncclient" rev="latest.release"/>-->
+
+		<dependency org="org.cyclopsgroup" name="jmxterm" rev="1.0-alpha-4"/>
+
 		<dependency org="com.martiansoftware" name="jsap" rev="latest.release"/>
 
 		<dependency org="org.softee" name="pojo-mbean" rev="latest.release"/>

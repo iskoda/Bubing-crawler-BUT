@@ -28,11 +28,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Random;
 
-import junit.framework.TestCase;
-
 import org.apache.commons.io.IOUtils;
 
-
+import org.junit.Assert;
 
 //RELEASE-STATUS: DIST
 
@@ -64,7 +62,7 @@ public final class TestUtil {
      * then another attempt is done to locate it one level above etc., until it is found
      * or until there are no more levels; 
      *
-     * <P>This class will directly {@link junit.framework.Assert#fail()} 
+     * <P>This class will directly {@link org.junit.Assert#fail()} 
      * the current test if the property is not defined, or if the path that
      * is supposed to contain the file does not exist or does not correspond
      * to a directory. 
@@ -87,7 +85,7 @@ public final class TestUtil {
         
         final String dataDirName = System.getProperty( DATA_DIR );
         
-        if ( dataDirName == null ) TestCase.fail( DATA_DIR + " is not defined" );
+        if ( dataDirName == null ) Assert.fail( DATA_DIR + " is not defined" );
         else if ( dataDirName.length() == 0 ) return null;
         
         File testDir = new File( dataDirName );
@@ -108,7 +106,7 @@ public final class TestUtil {
             	if ( firstAttempt == null ) firstAttempt = result.toString();
             	if ( ! result.exists() && numberOfPieces > 0 ) numberOfPieces--;
             } while ( ! result.exists() && numberOfPieces > 0 );
-            if ( ! result.exists() ) TestCase.fail( firstAttempt + " does not exist (not even in the rest of the hierarchy up to " + actualDir + ")" );
+            if ( ! result.exists() ) Assert.fail( firstAttempt + " does not exist (not even in the rest of the hierarchy up to " + actualDir + ")" );
         } else 
         	result = new File( testDir, name );
         return result.toString();

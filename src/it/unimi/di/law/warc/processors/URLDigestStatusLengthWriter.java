@@ -1,5 +1,8 @@
 package it.unimi.di.law.warc.processors;
 
+import java.io.IOException;
+import java.io.PrintStream;
+
 /*		 
  * Copyright (C) 2004-2013 Paolo Boldi, Massimo Santini, and Sebastiano Vigna 
  *
@@ -20,38 +23,28 @@ package it.unimi.di.law.warc.processors;
 
 // RELEASE-STATUS: DIST
 
-import it.unimi.di.law.warc.io.UncompressedWarcWriter;
 import it.unimi.di.law.warc.processors.ParallelFilteredProcessorRunner.Writer;
+import it.unimi.di.law.warc.records.HttpResponseWarcRecord;
+import it.unimi.di.law.warc.records.WarcHeader;
+import it.unimi.di.law.warc.records.WarcHeader.Name;
 import it.unimi.di.law.warc.records.WarcRecord;
 
-import java.io.IOException;
-import java.io.PrintStream;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.io.Closeables;
-
-/** A writer that simply writes the given record. */
-
-public class IdentityWriter implements Writer<WarcRecord> {
-
-	private static final Logger LOGGER =
-			LoggerFactory.getLogger(IdentityWriter.class);
-	private UncompressedWarcWriter writer;
-
+public class URLDigestStatusLengthWriter implements Writer<WarcRecord> {
+	
 	@Override
-	public void write(final WarcRecord r, final long storePosition, final PrintStream out) throws IOException {
-		if (writer == null) writer = new UncompressedWarcWriter(out);
-		try {
-			writer.write(r);
-		} catch (Exception e) {
-			LOGGER.error("Exception while writing record", e);
-		}
+	public void write( final WarcRecord warcRecord, final long storePosition, final PrintStream out ) throws IOException {
+		out.print( warcRecord.getWarcTargetURI() );
+		out.print( '\t' );
+		out.print( warcRecord.getWarcHeader( Name.WARC_PAYLOAD_DIGEST ).getValue() );
+		out.print( '\t' );
+		out.print( ( (HttpResponseWarcRecord)warcRecord ).getStatusLine().getStatusCode() );
+		out.print( '\t' );
+		out.print( warcRecord.getWarcHeader( WarcHeader.Name.BUBING_IS_DUPLICATE ) );
+		out.print( '\t' );
+		out.print( ( (HttpResponseWarcRecord)warcRecord ).getEntity().getContentLength() );
+		out.write( '\n' );
 	}
 
 	@Override
-	public void close() throws IOException {
-		Closeables.close(writer, true);
-	}
+	public void close() throws IOException {}
 }

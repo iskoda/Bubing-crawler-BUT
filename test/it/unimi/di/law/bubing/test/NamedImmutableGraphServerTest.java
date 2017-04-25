@@ -24,7 +24,7 @@ import static org.junit.Assert.assertEquals;
 import it.unimi.dsi.bits.TransformationStrategies;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.lang.MutableString;
-import it.unimi.dsi.sux4j.mph.MWHCFunction;
+import it.unimi.dsi.sux4j.mph.GOV3Function;
 import it.unimi.dsi.util.LiterallySignedStringMap;
 import it.unimi.dsi.webgraph.ArrayListMutableGraph;
 
@@ -47,8 +47,7 @@ public class NamedImmutableGraphServerTest {
 		int NUM_NODES = 100, NUM_QUERIES = 1000;
 		MutableString nodeName[] = new MutableString[ NUM_NODES ];
 		for ( int i = 0; i < NUM_NODES; i++ ) nodeName[ i ] = getFakeURL( i );
-		MWHCFunction<MutableString> name2node = new MWHCFunction<MutableString>( 
-				new ObjectArrayList<MutableString>( nodeName ), TransformationStrategies.iso() );
+		GOV3Function<MutableString> name2node = new GOV3Function.Builder<MutableString>().keys( new ObjectArrayList<MutableString>( nodeName ) ).transform( TransformationStrategies.iso() ).build();
 		ObjectArrayList<MutableString> node2name = new ObjectArrayList<MutableString>( nodeName );
 		ArrayListMutableGraph graph = new ArrayListMutableGraph();
 		graph.addNodes( NUM_NODES );

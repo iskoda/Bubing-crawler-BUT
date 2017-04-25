@@ -109,14 +109,14 @@ public class GZIPArchive {
 	 * subsequent read from the same archive.
 	 */
 	public static class ReadEntry extends Entry {
+	    	public LazyInflater lazyInflater = null;
 		/** The lazy infalter that can be used to get (part of the) uncompressed entry content. */
 		public interface LazyInflater {
-			/** Returns the actual inflater from which the uncompressed entry content may be read. */ 
+			/** Returns the actual inflater from which the uncompressed entry content may be read. If cached, can be called multimple times per entry. */ 
 			public InputStream get() throws IOException;
-			/** Consumes the (possibly) remaining entry content. */
+			/** Consumes the (possibly) remaining entry content. Must be called exactly once per entry. */
 			public void consume() throws IOException;
-		}
-		public LazyInflater lazyInflater = null; 
+		} 
 	}
 
 	/**
