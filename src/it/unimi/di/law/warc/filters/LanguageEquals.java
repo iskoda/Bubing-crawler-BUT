@@ -6,7 +6,7 @@ import it.unimi.di.law.bubing.parser.Parser;
 
 import java.io.IOException;
 
-import wrapper.NNetLanguageIdentifierWrapper;
+import cz.vutbr.fit.knot.NNetLanguageIdentifierWrapper;
 
 /** A filter accepting only URIResponse whose content is in a certain language. */
 public class LanguageEquals extends AbstractFilter<URIResponse> {

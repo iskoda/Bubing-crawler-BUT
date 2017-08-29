@@ -7,7 +7,7 @@ import java.net.URI;
 
 import org.apache.commons.io.input.CharSequenceReader;
 
-import wrapper.NNetLanguageIdentifierWrapper;
+import cz.vutbr.fit.knot.NNetLanguageIdentifierWrapper;
 
 /** An implementation of a {@link Parser.TextProcessor} that identifier language of text. */
 public final class LanguageTextProcessor implements TextProcessor<NNetLanguageIdentifierWrapper.Result> {

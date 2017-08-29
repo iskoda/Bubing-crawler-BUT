@@ -12,7 +12,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
-import wrapper.NNetLanguageIdentifierWrapper;
+import cz.vutbr.fit.knot.NNetLanguageIdentifierWrapper;
 
 /** A filter accepting only URIResponse whose content is in one of a given set of languages. */
 public class LanguageEqualsOneOf extends AbstractFilter<URIResponse> {
