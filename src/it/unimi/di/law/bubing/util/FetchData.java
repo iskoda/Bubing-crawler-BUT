@@ -57,6 +57,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.net.HttpHeaders;
+import cz.vutbr.fit.knot.NNetLanguageIdentifierWrapper;
 
 //RELEASE-STATUS: DIST
 
@@ -134,6 +135,9 @@ public class FetchData implements URIResponse, Closeable {
 	}
 
 
+	/** The language of response text. */
+	protected volatile NNetLanguageIdentifierWrapper.Result language;
+	
 	/** The BUbiNG URL associated with this request. */
 	protected volatile URI url;
 	
@@ -274,6 +278,14 @@ public class FetchData implements URIResponse, Closeable {
 		return this.response;
 	}
 
+	public void language(NNetLanguageIdentifierWrapper.Result language) {
+		this.language = language;
+	}
+        
+	@Override
+	public NNetLanguageIdentifierWrapper.Result language() {
+		return this.language;
+	}
 	/** Fetches a given URL.
 	 * 
 	 * @param httpClient the client that will be used to fetch {@code url}.
@@ -285,6 +297,7 @@ public class FetchData implements URIResponse, Closeable {
 		this.visitState = visitState;		
 		this.url = url;
 		this.response = null;
+		this.language = new NNetLanguageIdentifierWrapper.Result("und", 0.f, false, 0.f);
 		this.exception = null;
 		this.truncated = false;
 		this.isDuplicate = false;

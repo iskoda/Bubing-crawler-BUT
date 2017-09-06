@@ -18,6 +18,7 @@ package it.unimi.di.law.bubing.frontier;
  *
  */
 
+import cz.vutbr.fit.knot.NNetLanguageIdentifierWrapper;
 import it.unimi.di.law.bubing.RuntimeConfiguration;
 import it.unimi.di.law.bubing.parser.HTMLParser;
 import it.unimi.di.law.bubing.parser.Parser;
@@ -355,6 +356,13 @@ public class ParsingThread extends Thread {
 													LOGGER.info( "Spammicity for " + visitState + ": " + visitState.spammicity + " (" + visitState.termCountUpdates + " updates)" );
 												}
 											}
+
+											final Object result = parser.result();
+
+											if ( result instanceof NNetLanguageIdentifierWrapper.Result ) {
+												fetchData.language( (NNetLanguageIdentifierWrapper.Result)result );
+												LOGGER.info( "Language of " + fetchData.uri() + ": " + ((NNetLanguageIdentifierWrapper.Result)result).language );          
+											}       
 										} catch( BufferOverflowException e ) {
 											LOGGER.warn( "Buffer overflow during parsing of " + url + " with " + parser );
 										} catch( IOException e ) {

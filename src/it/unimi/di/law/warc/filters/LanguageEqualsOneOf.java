@@ -1,43 +1,27 @@
 package it.unimi.di.law.warc.filters;
 
-import it.unimi.di.law.bubing.parser.HTMLParser;
-import it.unimi.di.law.bubing.parser.LanguageTextProcessor;
-import it.unimi.di.law.bubing.parser.Parser;
-
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
-
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 
 import cz.vutbr.fit.knot.NNetLanguageIdentifierWrapper;
 
 /** A filter accepting only URIResponse whose content is in one of a given set of languages. */
 public class LanguageEqualsOneOf extends AbstractFilter<URIResponse> {
 
-    private static final HTMLParser<NNetLanguageIdentifierWrapper.Result> HTML_PARSER = new HTMLParser<>( null, new LanguageTextProcessor(), false );
     private static final Splitter SPLITTER = Splitter.on( ',' ).trimResults().omitEmptyStrings();
     
-    private final Set<String> languages;
+    private final String[] languages;
 
     public LanguageEqualsOneOf( final String[] languages ) {
-        this.languages = new HashSet<>();
-        this.languages.addAll( Arrays.asList( languages ) );
+        this.languages = languages;
     }
 
     @Override
     public boolean apply( final URIResponse response ) {
-        try {
-            if( response.response().getStatusLine().getStatusCode() != 200 ) {
-                return false;
-            }
-            HTML_PARSER.parse( response.uri(), response.response(), Parser.NULL_LINK_RECEIVER);
-            return this.languages.contains( HTML_PARSER.result().language );
-        } catch( IOException ex ) {
-            return false;
-        }
+        NNetLanguageIdentifierWrapper.Result lan = response.language();
+        if( lan.is_reliable == false ) return false;
+        for ( String language: languages ) if ( lan.language.equals( language ) ) return true;
+        return false;
     }
 
     public static LanguageEqualsOneOf valueOf( final String spec ) {
@@ -46,7 +30,7 @@ public class LanguageEqualsOneOf extends AbstractFilter<URIResponse> {
 
     @Override
     public String toString() {
-        return toString( this.languages.toArray() );
+        return toString((Object[]) this.languages);
     }
 
     @Override

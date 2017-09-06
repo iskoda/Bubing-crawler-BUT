@@ -49,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.net.HttpHeaders;
+import cz.vutbr.fit.knot.NNetLanguageIdentifierWrapper;
 
 /** An implementation of {@link WarcRecord} corresponding to a {@link WarcRecord.Type#RESPONSE} record type. */
 public class HttpResponseWarcRecord extends AbstractWarcRecord implements HttpResponse, URIResponse {
@@ -214,6 +215,11 @@ public class HttpResponseWarcRecord extends AbstractWarcRecord implements HttpRe
 	@Override
 	public HttpResponse response() {
 		return this;
+	}
+      
+	@Override
+	public NNetLanguageIdentifierWrapper.Result language() {
+		return null;
 	}
 
 }

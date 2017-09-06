@@ -25,6 +25,7 @@ import java.net.URI;
 
 import org.apache.http.HttpResponse;
 
+import cz.vutbr.fit.knot.NNetLanguageIdentifierWrapper;
 //RELEASE-STATUS: DIST
 
 /** An interface implemented by all classes able to expose a {@link HttpResponse} and {@link URI}, e.g. {@link HttpResponseWarcRecord} or {@link FetchData}. */
@@ -43,4 +44,9 @@ public interface URIResponse {
 	 */
 	public HttpResponse response();
 
+	/** Returns the language of response.
+	 * 
+	 * @return the language identifier result.
+	 */
+	public NNetLanguageIdentifierWrapper.Result language();
 }
