@@ -64,6 +64,11 @@ import com.martiansoftware.jsap.Parameter;
 import com.martiansoftware.jsap.SimpleJSAP;
 import com.martiansoftware.jsap.Switch;
 import com.martiansoftware.jsap.UnflaggedOption;
+import it.unimi.di.law.bubing.frontier.VisitState;
+import it.unimi.di.law.bubing.frontier.WorkbenchEntry;
+import it.unimi.di.law.bubing.util.LockFreeQueue;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 
 //RELEASE-STATUS: DIST
 
@@ -178,8 +183,58 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 		rc.stopping = true; 
 		notify();
 	}
+        
+	private synchronized void saveURLs(PrintWriter writer, LockFreeQueue<VisitState> queue ) {
+		while( queue.size() > 0 ) {
+			VisitState visitState = queue.poll();
+			while( ! visitState.isEmpty() ) {
+				final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.dequeue() );
+				writer.println( url.toString() );
+			}
+		}  
+	}
 
-	
+	@ManagedOperation @Description("Pause this agent and save URLs to file.")
+	public synchronized void saveURLs( String file ) throws FileNotFoundException, UnsupportedEncodingException, IOException, InterruptedException {
+		pause();
+		PrintWriter writer = new PrintWriter( file, "UTF-8" );
+
+		frontier.sieve.flush();
+
+		while( ! frontier.readyURLs.isEmpty() ) {
+			frontier.readyURLs.dequeue();
+			writer.println( frontier.readyURLs.buffer() );
+		}
+
+		for( VisitState visitState : frontier.unknownHosts ) {
+			while( visitState != null && ! visitState.isEmpty() ) {
+				final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.dequeue() );
+				writer.println( url.toString() );
+			}
+		}
+
+		while( frontier.newVisitStates.size() > 0 ) {
+			VisitState visitState = frontier.newVisitStates.poll();
+			while( ! visitState.isEmpty() ) {
+				final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.dequeue() );
+				writer.println( url.toString() );
+			}
+		}
+
+		for( WorkbenchEntry w : frontier.workbench ) {
+			for( VisitState visitState : w.visitStates() ) {
+				final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.dequeue() );
+				writer.println( url.toString() );
+			}
+		}            
+		saveURLs( writer, frontier.todo );
+		saveURLs( writer, frontier.done );
+                
+		LOGGER.info( "END save..." );
+
+		writer.close();
+	}
+        
 	@ManagedOperation @Description("Pause this agent")
 	public void pause() {
 		LOGGER.info( "Going to pause the agent..." );
