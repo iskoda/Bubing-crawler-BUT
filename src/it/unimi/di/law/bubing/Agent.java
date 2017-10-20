@@ -198,12 +198,13 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 	public synchronized void saveURLs( String file ) throws FileNotFoundException, UnsupportedEncodingException, IOException, InterruptedException {
 		pause();
 		PrintWriter writer = new PrintWriter( file, "UTF-8" );
-
+                
 		frontier.sieve.flush();
 
 		while( ! frontier.readyURLs.isEmpty() ) {
 			frontier.readyURLs.dequeue();
-			writer.println( frontier.readyURLs.buffer() );
+			byte[] url = frontier.readyURLs.buffer().elements();
+			writer.println( BURL.fromNormalizedSchemeAuthorityAndPathQuery( BURL.schemeAndAuthorityAsByteArray( url ), BURL.pathAndQueryAsByteArray( frontier.readyURLs.buffer() ) ) );
 		}
 
 		for( VisitState visitState : frontier.unknownHosts ) {
@@ -226,7 +227,8 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 				final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.dequeue() );
 				writer.println( url.toString() );
 			}
-		}            
+		}
+                
 		saveURLs( writer, frontier.todo );
 		saveURLs( writer, frontier.done );
                 
