@@ -69,6 +69,7 @@ import it.unimi.di.law.bubing.frontier.WorkbenchEntry;
 import it.unimi.di.law.bubing.util.LockFreeQueue;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
+import java.net.UnknownHostException;
 
 //RELEASE-STATUS: DIST
 
@@ -184,21 +185,36 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 		notify();
 	}
         
-	private synchronized void saveURLs(PrintWriter writer, LockFreeQueue<VisitState> queue ) {
-		while( queue.size() > 0 ) {
-			VisitState visitState = queue.poll();
-			while( ! visitState.isEmpty() ) {
-				final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.dequeue() );
-				writer.println( url.toString() );
-			}
-		}  
-	}
-
 	@ManagedOperation @Description("Pause this agent and save URLs to file.")
 	public synchronized void saveURLs( String file ) throws FileNotFoundException, UnsupportedEncodingException, IOException, InterruptedException {
 		pause();
+
 		PrintWriter writer = new PrintWriter( file, "UTF-8" );
-                
+		for( VisitState visitState: frontier.distributor.schemeAuthority2VisitState.visitStates() ) {
+			if ( visitState == null ) continue;
+			String address;
+			if( visitState.workbenchEntry != null ) {
+                            try {
+                                address = InetAddress.getByAddress( visitState.workbenchEntry.ipAddress ).getHostAddress();
+                            } catch ( Throwable t ) {
+                                LOGGER.error( "Unexpected exception", t );
+                                address = "";
+                            }
+                        }
+			else {
+                            address = "";
+                        }
+
+			while( !visitState.isEmpty() ) {
+				final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.dequeue() );
+				writer.println( url.toString() + "\t" + address );
+			}
+		}
+
+		writer.close();
+		writer = new PrintWriter( file+".readyURLs", "UTF-8" );
+
+		synchronized( frontier.sieve ) {}
 		frontier.sieve.flush();
 
 		while( ! frontier.readyURLs.isEmpty() ) {
@@ -207,34 +223,9 @@ public class Agent extends JGroupsJobManager<BubingJob> {
 			writer.println( BURL.fromNormalizedSchemeAuthorityAndPathQuery( BURL.schemeAndAuthorityAsByteArray( url ), BURL.pathAndQueryAsByteArray( frontier.readyURLs.buffer() ) ) );
 		}
 
-		for( VisitState visitState : frontier.unknownHosts ) {
-			while( visitState != null && ! visitState.isEmpty() ) {
-				final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.dequeue() );
-				writer.println( url.toString() );
-			}
-		}
-
-		while( frontier.newVisitStates.size() > 0 ) {
-			VisitState visitState = frontier.newVisitStates.poll();
-			while( ! visitState.isEmpty() ) {
-				final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.dequeue() );
-				writer.println( url.toString() );
-			}
-		}
-
-		for( WorkbenchEntry w : frontier.workbench ) {
-			for( VisitState visitState : w.visitStates() ) {
-				final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.dequeue() );
-				writer.println( url.toString() );
-			}
-		}
-                
-		saveURLs( writer, frontier.todo );
-		saveURLs( writer, frontier.done );
-                
-		LOGGER.info( "END save..." );
-
 		writer.close();
+
+		LOGGER.info( "END save..." );
 	}
         
 	@ManagedOperation @Description("Pause this agent")

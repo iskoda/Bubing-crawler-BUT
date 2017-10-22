@@ -75,7 +75,7 @@ public final class Distributor extends Thread {
 	/** A reference to the frontier. */
 	private final Frontier frontier;
 	/** An <strong>unsynchronized</strong> map from scheme+authorities to the corresponding {@link VisitState}. */
-	protected final VisitStateSet schemeAuthority2VisitState;
+	public final VisitStateSet schemeAuthority2VisitState;
 	/** The thread printing statistics. */
 	protected final StatsThread statsThread;
 	/** The last time we produced a high-cost statistics. */

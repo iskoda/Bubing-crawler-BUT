@@ -296,7 +296,7 @@ public class Frontier implements JobListener<BubingJob>, AbstractSieve.NewFlowRe
 	private final ObjectArrayList<FetchingThread> fetchingThreads;
 
 	/** The thread constantly moving ready URLs into the {@linkplain #workbench}. */
-	protected final Distributor distributor;
+	public final Distributor distributor;
 
 	/** The URL cache. This cache stores the most recent URLs that have been
 	 * {@linkplain Frontier#enqueue(ByteArrayList) enqueued}. */
