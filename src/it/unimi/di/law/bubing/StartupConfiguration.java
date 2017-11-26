@@ -368,7 +368,26 @@ public class StartupConfiguration {
 	 * after {@link #spamDetectionThreshold} pages. */
 	@OptionalSpecification(value="2147483647")
 	public int spamDetectionPeriodicity;
+        
+	/** Use KNOT deduplication.
+	 */
+	@OptionalSpecification(value="false")
+	public boolean knotDedup;
 
+	/**
+	 */
+	@OptionalSpecification(value="0.5")
+	public float deduplicationThreshold;
+        
+	/** Hashmap of distibution of hash block on servers.
+	 */
+	@OptionalSpecification(value="hashmap.conf")
+	public String knotDedupHashMap;	
+        
+	/** Port of KNOT deduplication server.
+	 */
+	@OptionalSpecification(value="1234")
+	public int knotDedupPort;
 
 	/* Checks */
 	

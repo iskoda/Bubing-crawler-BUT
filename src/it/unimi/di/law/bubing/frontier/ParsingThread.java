@@ -18,8 +18,11 @@ package it.unimi.di.law.bubing.frontier;
  *
  */
 
+import it.unimi.di.law.knot.KnotDedup;
+
 import it.unimi.di.law.bubing.RuntimeConfiguration;
 import it.unimi.di.law.bubing.parser.HTMLParser;
+import it.unimi.di.law.bubing.parser.KnotDedupTextProcessor;
 import it.unimi.di.law.bubing.parser.Parser;
 import it.unimi.di.law.bubing.parser.Parser.LinkReceiver;
 import it.unimi.di.law.bubing.parser.SpamTextProcessor;
@@ -41,6 +44,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.BufferOverflowException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 
@@ -244,6 +248,17 @@ public class ParsingThread extends Thread {
 	@SuppressWarnings("unchecked")
 	@Override
 	public void run() {
+		KnotDedup dedupWorker = null;
+              
+		try {
+			if( frontier.rc.knotDedup != null ) {
+				dedupWorker = frontier.rc.knotDedup.copy();
+				dedupWorker.connect();
+			}   
+		} catch (IOException ex) {
+   
+		}
+            
 		try {
 			final RuntimeConfiguration rc = frontier.rc;
 			final FrontierEnqueuer frontierLinkReceiver = new FrontierEnqueuer( frontier, rc );
@@ -355,6 +370,12 @@ public class ParsingThread extends Thread {
 													LOGGER.info( "Spammicity for " + visitState + ": " + visitState.spammicity + " (" + visitState.termCountUpdates + " updates)" );
 												}
 											}
+											if( dedupWorker != null ) {
+												final Object result = parser.result();
+												if( result instanceof KnotDedupTextProcessor.Paragraphs ) {
+													dedupWorker.setParagraphs( (List<String>)result );
+												}
+											}
 										} catch( BufferOverflowException e ) {
 											LOGGER.warn( "Buffer overflow during parsing of " + url + " with " + parser );
 										} catch( IOException e ) {
@@ -388,7 +409,17 @@ public class ParsingThread extends Thread {
 						digest = fetchData.binaryParser.parse( fetchData.uri(), fetchData.response(), null );
 					}
 					
-					final boolean isNotDuplicate = streamLength == 0 || frontier.digests.addHash( digest ); // Essentially thread-safe; we do not consider zero-content pages as duplicates
+					boolean isNotDuplicate = streamLength == 0 || frontier.digests.addHash( digest ); // Essentially thread-safe; we do not consider zero-content pages as duplicates
+					// final long time = System.nanoTime();
+					if ( dedupWorker != null && streamLength != 0 && isNotDuplicate ) {
+						float duplicityRate = dedupWorker.duplicityRate();
+						LOGGER.info( "Duplicity rate of {} is: {}", url, duplicityRate );
+						if( duplicityRate > rc.deduplicationThreshold ) {
+							isNotDuplicate = false;
+						}
+						// final long time2 = System.nanoTime();
+					}
+
 					if ( LOGGER.isTraceEnabled() ) LOGGER.trace( "Decided that for {} isNotDuplicate={}", url, Boolean.valueOf( isNotDuplicate ) );
 					if ( isNotDuplicate ) for( URI u: linkReceiver ) frontierLinkReceiver.enqueue( u );
 					else fetchData.isDuplicate( true );

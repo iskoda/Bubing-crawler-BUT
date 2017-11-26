@@ -64,6 +64,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
+import it.unimi.di.law.knot.KnotDedup;
 
 //RELEASE-STATUS: DIST
 
@@ -256,6 +257,11 @@ public class RuntimeConfiguration {
 	/** The parser, instantiated. Parsers used by {@link ParsingThread} instances are obtained by {@linkplain FlyweightPrototype#copy() copying this parsers}. */
 	public final ArrayList<Parser<?>> parsers;
 
+	/** Use KNOT deduplication. */
+	public KnotDedup knotDedup;
+
+	public float deduplicationThreshold;
+        
 	/* Global data not depending on a StartupConfiguration. */
 
 	/* Global data not initialised at startup. */
@@ -375,7 +381,15 @@ public class RuntimeConfiguration {
 			dnsCacheMaxSize = startupConfiguration.dnsCacheMaxSize;
 			dnsPositiveTtl = startupConfiguration.dnsPositiveTtl;
 			dnsNegativeTtl = startupConfiguration.dnsNegativeTtl;
-			
+
+			/* KNOT deduplication */
+			if( startupConfiguration.knotDedup ) {
+				knotDedup = new KnotDedup( startupConfiguration.knotDedupHashMap, startupConfiguration.knotDedupPort );
+			} else {
+				knotDedup = null;
+			}
+			/* ------------------ */
+
 			try {
 				dnsResolver = startupConfiguration.dnsResolverClass.getConstructor().newInstance();
 			}
