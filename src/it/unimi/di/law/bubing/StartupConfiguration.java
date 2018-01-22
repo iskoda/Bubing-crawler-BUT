@@ -376,7 +376,7 @@ public class StartupConfiguration {
 
 	/**
 	 */
-	@OptionalSpecification(value="0.5")
+	@OptionalSpecification(value="0.8")
 	public float deduplicationThreshold;
         
 	/** Hashmap of distibution of hash block on servers.

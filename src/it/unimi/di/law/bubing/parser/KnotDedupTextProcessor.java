@@ -22,25 +22,27 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.regex.Pattern;
 
 /** */
-public final class KnotDedupTextProcessor implements TextProcessor<List<String>> {
-	public final static class Paragraphs extends ArrayList<String> {
+public final class KnotDedupTextProcessor implements TextProcessor<List<CharSequence>> {
+	public final static class Paragraphs extends ArrayList<CharSequence> {
 	};
                 
 	KnotDedupTextProcessor.Paragraphs paragraphs;
-    
+	static final private Pattern NON_WORD = Pattern.compile( "\\W+", Pattern.UNICODE_CHARACTER_CLASS );
+        
 	public KnotDedupTextProcessor() { }	
 	
 	@Override
 	public Appendable append( CharSequence csq ) throws IOException {
-		paragraphs.add( csq.toString() );
+		paragraphs.add( process( csq ) );
 		return this;
 	}
 
 	@Override
 	public Appendable append( CharSequence csq, int start, int end ) throws IOException {
-		paragraphs.add( csq.subSequence( start, end ).toString() );
+		paragraphs.add( process( csq.subSequence( start, end ) ) );
 		return this;
 	}
 
@@ -48,19 +50,23 @@ public final class KnotDedupTextProcessor implements TextProcessor<List<String>>
 	public Appendable append( char c ) throws IOException {
 		return this;
 	}
-
+        
 	@Override
 	public void init( URI responseUrl ) {
 		paragraphs = new Paragraphs();
 	}
 
 	@Override
-	public List<String> result() {
+	public List<CharSequence> result() {
 		return paragraphs;
 	}
 
 	@Override
-	public TextProcessor<List<String>> copy() {
+	public TextProcessor<List<CharSequence>> copy() {
 		return new KnotDedupTextProcessor( );
+	}
+        
+	private CharSequence process( CharSequence csq ) {
+		return NON_WORD.matcher( csq ).replaceAll( " " ).trim().toLowerCase();
 	}
 }

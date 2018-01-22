@@ -227,7 +227,7 @@ public final class FetchingThread extends Thread implements Closeable {
 				final long startTime = System.currentTimeMillis();
 				
 				while( ! visitState.isEmpty() ) {
-					final byte[] path = visitState.firstPath();
+					final byte[] path = visitState.firstPath().pathQuery;
 					final URI url = BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, path );
 
 					if ( LOGGER.isDebugEnabled() ) LOGGER.debug( "Next URL: {}", url );

@@ -388,6 +388,7 @@ public class RuntimeConfiguration {
 			} else {
 				knotDedup = null;
 			}
+                        deduplicationThreshold = startupConfiguration.deduplicationThreshold;
 			/* ------------------ */
 
 			try {

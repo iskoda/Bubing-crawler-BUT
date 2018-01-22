@@ -41,6 +41,9 @@ import org.slf4j.LoggerFactory;
 
 import com.sleepycat.je.Cursor;
 import com.sleepycat.je.Database;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.util.PriorityQueue;
 
 //RELEASE-STATUS: DIST
 
@@ -89,10 +92,57 @@ public class WorkbenchVirtualizer implements Closeable {
 	public int dequeuePathQueries( final VisitState visitState, final int maxUrls ) throws IOException {
 		if ( maxUrls == 0 ) return 0;
 		int dequeued = (int)Math.min( maxUrls, byteArrayDiskQueues.count( visitState ) );
-		for( int i = dequeued; i-- != 0; ) visitState.enqueuePathQuery( byteArrayDiskQueues.dequeue( visitState ) );
+		for( int i = dequeued; i-- != 0; ) {
+                    byte[] pathQuery = byteArrayDiskQueues.dequeue( visitState );
+                    final PathQueryState pathQueryState = new PathQueryState( pathQuery );
+                    visitState.enqueuePathQuery( pathQueryState );
+                }
 		return dequeued;
 	}
 
+        	/** Dequeues at most the given number of path+queries into the given visit state.
+	 * 
+	 * <p>Note that the path+queries are directly enqueued into the visit state using 
+	 * {@link VisitState#enqueuePathQuery(byte[])}.
+	 * 
+	 * @param visitState the visitState in which path+queries will be moved.
+	 * @param maxUrls the maximum number of path+queries to move.
+	 * @return the number of actually dequeued path+queries.
+	 * @throws IOException 
+	 */
+	public int dequeuePathQueriesState( final VisitState visitState, final int maxUrls ) throws IOException {
+		if ( maxUrls == 0 ) return 0;
+		int dequeued = 0;
+                
+                PriorityQueue<PathQueryState> pathQueries = new PriorityQueue<>();
+                
+                for( int i = (int)byteArrayDiskQueues.count( visitState ); i-- != 0; ) {
+                	byte[] bytes = byteArrayDiskQueues.dequeue( visitState );
+                        
+			try( ByteArrayInputStream b = new ByteArrayInputStream( bytes ) ){
+				try( ObjectInputStream o = new ObjectInputStream( b ) ){
+					final PathQueryState pathQueryState = (PathQueryState) o.readObject();
+					pathQueries.add( pathQueryState );
+                                }
+			} catch ( Throwable e ) {
+				LOGGER.warn( "Exception during virtualizer dequeue: " + e );
+                        }
+		}
+                
+		for( int i = pathQueries.size(); i-- != 0; ) {
+                        final PathQueryState pathQuery = pathQueries.poll();
+                        if ( pathQuery.nextFetch < System.currentTimeMillis() && dequeued < maxUrls ) {
+                            visitState.enqueuePathQuery( pathQuery );
+                            dequeued++;
+                            LOGGER.info( "Dequeue url: {}", BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, pathQuery.pathQuery ) );
+                        } else {
+                            this.enqueuePathQueryState( visitState, pathQuery );
+                        }
+                }
+                LOGGER.info( "Dequeue {} url to visitstate {}", dequeued, Util.toString( visitState.schemeAuthority ) );
+                        
+		return dequeued;
+	}
 	/** Returns the number of path+queries associated with the given visit state.
 	 * 
  	 * @param visitState the visitState whose path+queries are to be counted.
@@ -129,6 +179,25 @@ public class WorkbenchVirtualizer implements Closeable {
 		final byte[] urlBuffer = url.elements();
 		final int pathQueryStart = BURL.startOfpathAndQuery( urlBuffer );
 		byteArrayDiskQueues.enqueue( visitState,  urlBuffer, pathQueryStart, url.size() - pathQueryStart );
+	}
+
+
+	/**
+	 *  
+ 	 * @param visitState
+	 * @param pathQuery 
+	 * @throws IOException 
+	 */
+	public void enqueuePathQueryState( VisitState visitState, final PathQueryState pathQuery ) throws IOException {
+                LOGGER.info( "Enqueue url: {}", BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, pathQuery.pathQuery ) );
+				
+                try(ByteArrayOutputStream b = new ByteArrayOutputStream()){
+                    try(ObjectOutputStream o = new ObjectOutputStream(b)){
+                        o.writeObject(pathQuery);
+                    }
+                    byte[] serialized = b.toByteArray();
+                    byteArrayDiskQueues.enqueue( visitState, serialized, 0, serialized.length ); 
+                }
 	}
 
 	/** Performs a garbage collection if the space used is below a given threshold, reaching a given target ratio.

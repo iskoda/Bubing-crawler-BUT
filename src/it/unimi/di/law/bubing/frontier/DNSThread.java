@@ -77,7 +77,7 @@ public final class DNSThread extends Thread {
 
 				try {
 					// This is the first point in which DNS resolution happens for new hosts.
-					if ( LOGGER.isDebugEnabled() ) LOGGER.debug( "Resolving host {} with DNS because of URL {}", host, BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.firstPath() ) );
+					if ( LOGGER.isDebugEnabled() ) LOGGER.debug( "Resolving host {} with DNS because of URL {}", host, BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, visitState.firstPath().pathQuery ) );
 					final byte[] address = frontier.rc.dnsResolver.resolve( host )[ 0 ].getAddress();
 					
 					if ( address.length == 4 ) {

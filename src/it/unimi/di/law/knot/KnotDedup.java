@@ -23,7 +23,7 @@ public class KnotDedup {
 	BigInteger blockCount;
 	KnotDedupClient[] blockToServer;
 
-	List<String> paragraphs;
+	List<CharSequence> paragraphs;
 
 	public KnotDedup(String hashMap) throws FileNotFoundException  {
 		this( hashMap, 1234 );
@@ -68,11 +68,11 @@ public class KnotDedup {
 	 * 
 	 * @param paragraphs List of strings.
 	 */
-	public void setParagraphs( List<String> paragraphs ) {
+	public void setParagraphs( List<CharSequence> paragraphs ) {
 		this.paragraphs = paragraphs;
 	}
         
-	public List<String> getParagraphs() {
+	public List<CharSequence> getParagraphs() {
 		return paragraphs;
 	}
         
@@ -82,20 +82,31 @@ public class KnotDedup {
 	 * @throws IOException 
 	 */
 	public float duplicityRate() throws IOException {
-		float sum = 0.f;
-		float total = 0.f;
-		for( String paragraph : paragraphs) {
+		float newParagraphs = 0.f;
+		float duplicitParagraphs = 0.f;
+                
+                if( paragraphs == null || paragraphs.isEmpty() ) {
+                    return Float.NaN;
+                }
+                
+		for( CharSequence paragraph : paragraphs) {
 			if( paragraph.length() > LENGTH_LOW ) {
 				final Hasher hasher = Hashing.sipHash24().newHasher();
-				hasher.putBytes( paragraph.getBytes() );
+				hasher.putBytes( paragraph.toString().getBytes() );
 				final byte[] hash = hasher.hash().asBytes();
 
 				float w = paragraph.length() > LENGTH_HIGH ? 1.f : 0.5f;
-				sum += w * ( addHash( hash ) ? 0.f : 1.f );
-				total += w;
+
+				if( addHash( hash ) ) newParagraphs += w;
+				else duplicitParagraphs += w;                               
 			}
 		}
-		return sum / total;
+                
+                if( duplicitParagraphs == 0.f && newParagraphs == 0.f ) {
+                    return Float.NaN;
+                }
+                
+		return duplicitParagraphs / ( duplicitParagraphs + newParagraphs );
 	}
 
 	/** Connection to servers.

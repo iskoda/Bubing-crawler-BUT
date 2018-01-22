@@ -117,7 +117,7 @@ public class VisitState implements Delayed, Serializable {
 	/** A reference to the frontier. */
 	public transient Frontier frontier;
 	/** The path+queries that must be visited for this visit state. */
-	private final transient ObjectArrayFIFOQueue<byte[]> pathQueries;
+	private final transient ObjectArrayFIFOQueue<PathQueryState> pathQueries;
 	/** A map from term indices to counts for the pages of this host. This map is instantiated only if {@link RuntimeConfiguration#spamDetector} is not {@code null}. */
 	public final Short2ShortOpenHashMap termCount;
 	/** The number of calls performed to {@link #updateTermCount(Short2ShortMap)}. */
@@ -134,7 +134,7 @@ public class VisitState implements Delayed, Serializable {
 		this.frontier = frontier;
 		this.schemeAuthority = schemeAuthority;
 		cookies = EMPTY_COOKIE_ARRAY;
-		pathQueries = new ObjectArrayFIFOQueue<byte[]>();
+		pathQueries = new ObjectArrayFIFOQueue<PathQueryState>();
 		termCount = frontier != null && frontier.rc.spamDetector == null ? null : new Short2ShortOpenHashMap();
 		spammicity = -1;
 	}
@@ -195,14 +195,17 @@ public class VisitState implements Delayed, Serializable {
 	public synchronized void enqueueRobots() {
 		if ( ! RuntimeConfiguration.FETCH_ROBOTS ) return;
 		if ( nextFetch == Long.MAX_VALUE ) return;
+                
+                final PathQueryState robots = new PathQueryState( ROBOTS_PATH, 0 );
+                
 		synchronized( this ) { 
 			if ( pathQueries.isEmpty() ) {
-				pathQueries.enqueueFirst( ROBOTS_PATH );
+				pathQueries.enqueueFirst( robots );
 				putInEntryIfNotAcquired();
 			}
 			else {
-				final byte[] first = pathQueries.dequeue();
-				pathQueries.enqueueFirst( ROBOTS_PATH );
+				final PathQueryState first = pathQueries.dequeue();
+				pathQueries.enqueueFirst( robots );
 				pathQueries.enqueueFirst( first );
 			}
 		}
@@ -214,7 +217,10 @@ public class VisitState implements Delayed, Serializable {
 	 */ 
 	public synchronized void forciblyEnqueueRobotsFirst() {
 		if ( ! RuntimeConfiguration.FETCH_ROBOTS ) return;
-		pathQueries.enqueueFirst( ROBOTS_PATH );
+                
+                final PathQueryState robots = new PathQueryState( ROBOTS_PATH, 0 );
+                
+		pathQueries.enqueueFirst( robots );
 	}
 
 	/** Remove the <code>/robots.txt</code> path, if present, and in this case sets the last robots fetch
@@ -225,8 +231,8 @@ public class VisitState implements Delayed, Serializable {
 		if ( pathQueries.isEmpty() ) return;
 		
 		// We test the first path
-		final byte[] firstPath = pathQueries.dequeue();
-		if ( firstPath == VisitState.ROBOTS_PATH ) {
+		final PathQueryState firstPath = pathQueries.dequeue();
+		if ( firstPath.pathQuery == VisitState.ROBOTS_PATH ) {
 			// It's robots.txt: we set the last robots fetch time and don't put it back
 			lastRobotsFetch = Long.MAX_VALUE;
 			return;
@@ -240,8 +246,8 @@ public class VisitState implements Delayed, Serializable {
 		}
 		
 		// We test the second path
-		final byte[] secondPath = pathQueries.dequeue();
-		if ( secondPath == VisitState.ROBOTS_PATH ) {
+		final PathQueryState secondPath = pathQueries.dequeue();
+		if ( secondPath.pathQuery == VisitState.ROBOTS_PATH ) {
 			// It's robots.txt: we put back the first path and set the last robots fetch time (and don't put back the second path) 
 			pathQueries.enqueueFirst( firstPath );
 			lastRobotsFetch = Long.MAX_VALUE;
@@ -264,7 +270,7 @@ public class VisitState implements Delayed, Serializable {
 	 * 
 	 * @param pathQuery a path+query in byte-array representation.
 	 */
-	public void enqueuePathQuery( final byte[] pathQuery ) {
+	public void enqueuePathQuery( final PathQueryState pathQuery ) {
 		synchronized ( this ) {
 			if ( nextFetch == Long.MAX_VALUE ) return;
 			final boolean wasEmpty = pathQueries.isEmpty();
@@ -272,7 +278,7 @@ public class VisitState implements Delayed, Serializable {
 			if ( wasEmpty ) putInEntryIfNotAcquired();
 		}
 		frontier.pathQueriesInQueues.incrementAndGet();
-		frontier.weightOfpathQueriesInQueues.addAndGet( BURL.memoryUsageOf( pathQuery ) );
+		frontier.weightOfpathQueriesInQueues.addAndGet( BURL.memoryUsageOf( pathQuery.pathQuery ) );
 	}
 
 	/** Peeks at the first path in the queue.
@@ -283,7 +289,7 @@ public class VisitState implements Delayed, Serializable {
 	 * @return the first path in the queue.
 	 * @throws NoSuchElementException if the queue of path+queries is empty.
 	 */
-	public synchronized byte[] firstPath() {
+	public synchronized PathQueryState firstPath() {
 		return pathQueries.first();
 	}
 	
@@ -292,14 +298,14 @@ public class VisitState implements Delayed, Serializable {
 	 * @return the first path in the queue.
 	 * @throws NoSuchElementException if the queue of path+queries is empty.
 	 */
-	public byte[] dequeue() {
-		final byte[] array;
+	public PathQueryState dequeue() {
+		final PathQueryState array;
 		synchronized ( this ) {
 			array = pathQueries.dequeue();
 		}
-		if ( array != ROBOTS_PATH ) {
+		if ( array.pathQuery != ROBOTS_PATH ) {
 			frontier.pathQueriesInQueues.decrementAndGet();
-			frontier.weightOfpathQueriesInQueues.addAndGet( -BURL.memoryUsageOf( array ) );
+			frontier.weightOfpathQueriesInQueues.addAndGet( -BURL.memoryUsageOf( array.pathQuery ) );
 		}
 		
 		return array;
@@ -372,7 +378,7 @@ public class VisitState implements Delayed, Serializable {
 		
 		/* Safeguard: if there's no robots filter, and I'm not fetching it, and it's not the first
 		 * path in the queue, then something's wrong. */
-		if ( robotsFilter == null && lastRobotsFetch != Long.MAX_VALUE && ( isEmpty() || firstPath() != ROBOTS_PATH )) {
+		if ( robotsFilter == null && lastRobotsFetch != Long.MAX_VALUE && ( isEmpty() || firstPath().pathQuery != ROBOTS_PATH )) {
 			LOGGER.error( "No robots filter and no robots path for " + this );
 			lastRobotsFetch = Long.MAX_VALUE; // This inhibits further enqueueing until robots.txt is fetched.
 			enqueueRobots();
@@ -424,7 +430,7 @@ public class VisitState implements Delayed, Serializable {
 		int size = pathQueries.size();
 		s.writeInt( size );
 		
-		while( size-- != 0 ) Util.writeByteArray( pathQueries.dequeue(), s );
+		while( size-- != 0 ) Util.writeByteArray( pathQueries.dequeue().pathQuery, s );     //TODO(kondrej) write PathQueryState not only pathQuery
 	}
 
 	private void readObject( java.io.ObjectInputStream s ) throws java.io.IOException, ClassNotFoundException, NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
@@ -433,9 +439,9 @@ public class VisitState implements Delayed, Serializable {
 		
 		Field field = getClass().getDeclaredField( "pathQueries" );
 		field.setAccessible( true );
-		field.set( this, new ObjectArrayFIFOQueue<byte[]>( size ) );
+		field.set( this, new ObjectArrayFIFOQueue<PathQueryState>( size ) );
 
-		while( size-- != 0 ) pathQueries.enqueue( Util.readByteArray( s ) );
+		while( size-- != 0 ) pathQueries.enqueue( new PathQueryState( Util.readByteArray( s ) ) );        //TODO(kondrej) read PathQueryState not only pathQuery
 	}
 
 	private void updateTermCountEntry( Short2ShortMap.Entry e ) {

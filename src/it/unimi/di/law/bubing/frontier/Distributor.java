@@ -95,6 +95,15 @@ public final class Distributor extends Thread {
 		statsThread = new StatsThread( frontier, this );
 	}
 	
+        public void revisit( VisitState visitState, PathQueryState pathQuery ) {
+		try {
+                        LOGGER.info( "Revisit url {}",  BURL.fromNormalizedSchemeAuthorityAndPathQuery( visitState.schemeAuthority, pathQuery.pathQuery ) );
+			frontier.virtualizer.enqueuePathQueryState( visitState, pathQuery );
+		}
+		catch ( Throwable t ) {
+			LOGGER.error( "Unexpected exception", t );
+		}
+	}
 	@Override
 	public void run() {
 		try {
@@ -127,7 +136,8 @@ public final class Distributor extends Thread {
 							final int pathQueryLimit = visitState.pathQueryLimit();
 							if ( LOGGER.isDebugEnabled() ) LOGGER.debug( "Refilling {} with {} URLs", visitState, Integer.valueOf( pathQueryLimit ) );
 							visitState.checkRobots( now );
-							final int dequeuedURLs = frontier.virtualizer.dequeuePathQueries( visitState, pathQueryLimit );
+							//final int dequeuedURLs = frontier.virtualizer.dequeuePathQueries( visitState, pathQueryLimit );
+							final int dequeuedURLs = frontier.virtualizer.dequeuePathQueriesState( visitState, pathQueryLimit );
 							movedFromQueues += dequeuedURLs;
 						}
 					}
@@ -148,7 +158,9 @@ public final class Distributor extends Thread {
 							final ByteArrayList url = frontier.readyURLs.buffer();
 							final byte[] urlBuffer = url.elements();
 							final int startOfpathAndQuery = BURL.startOfpathAndQuery( urlBuffer );
-
+                                                        final PathQueryState pathQuery = new PathQueryState( BURL.pathAndQueryAsByteArray( url ) );
+                                                        
+        
 							final int currentlyInStore = frontier.schemeAuthority2Count.get( urlBuffer, 0, startOfpathAndQuery ); 
 							if ( currentlyInStore < frontier.rc.maxUrlsPerSchemeAuthority ) { // We have space for this scheme+authority
 								
@@ -160,7 +172,7 @@ public final class Distributor extends Thread {
 									visitState = new VisitState( frontier, schemeAuthority );
 									visitState.lastRobotsFetch = Long.MAX_VALUE; // This inhibits further enqueueing until robots.txt is fetched.
 									visitState.enqueueRobots();
-									visitState.enqueuePathQuery( BURL.pathAndQueryAsByteArray( url ) );
+									visitState.enqueuePathQuery( pathQuery );
 									schemeAuthority2VisitState.add( visitState );
 									// Send the visit state to the DNS threads
 									frontier.newVisitStates.add( visitState );
@@ -170,18 +182,20 @@ public final class Distributor extends Thread {
 									if ( frontier.virtualizer.count( visitState ) > 0 ) {
 										// Safe: there are URLs on disk, and this fact cannot change concurrently.
 										movedFromSieveToVirtualizer++;
-										frontier.virtualizer.enqueueURL( visitState, url );
-									}
+										//frontier.virtualizer.enqueueURL( visitState, url );
+										frontier.virtualizer.enqueuePathQueryState( visitState, pathQuery );
+                                                                        }
 									else if ( visitState.size() < visitState.pathQueryLimit() && visitState.workbenchEntry != null && visitState.lastExceptionClass == null ) {
 										/* Safe: we are enqueueing to a sane (modulo race conditions)
 										 * visit state, which will be necessarily go through the DoneThread later. */
 										visitState.checkRobots( now );
-										visitState.enqueuePathQuery( BURL.pathAndQueryAsByteArray( url ) );
+										visitState.enqueuePathQuery( pathQuery );
 										movedFromSieveToWorkbench++;
 									}
 									else { // visitState.urlsOnDisk == 0
 										movedFromSieveToVirtualizer++;
-										frontier.virtualizer.enqueueURL( visitState, url );
+										//frontier.virtualizer.enqueueURL( visitState, url );
+										frontier.virtualizer.enqueuePathQueryState( visitState, pathQuery );
 									}
 								}
 							}

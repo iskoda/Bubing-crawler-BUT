@@ -265,7 +265,8 @@ public class ParsingThread extends Thread {
 			
 			for(;;) {
 				rc.ensureNotPaused();
-				
+				PathQueryState firstPath;
+                                
 				FetchData fetchData;
 				for( int i = 0; ( fetchData = frontier.results.poll() ) == null; i++ ) {
 					rc.ensureNotPaused();
@@ -319,8 +320,8 @@ public class ParsingThread extends Thread {
 						continue;
 					}
 					else {
-						final byte[] firstPath = visitState.dequeue();
-						if ( LOGGER.isTraceEnabled() ) LOGGER.trace( "Dequeuing " + it.unimi.di.law.bubing.util.Util.toString( firstPath ) + " after fetching " + fetchData.uri() + "; " + ( visitState.isEmpty() ? "visit state is now empty " : " first path now is " + it.unimi.di.law.bubing.util.Util.toString( visitState.firstPath() ) ) );
+						firstPath = visitState.dequeue();      // TODO(kondrej) nextFetch
+						if ( LOGGER.isTraceEnabled() ) LOGGER.trace( "Dequeuing " + it.unimi.di.law.bubing.util.Util.toString( firstPath.pathQuery ) + " after fetching " + fetchData.uri() + "; " + ( visitState.isEmpty() ? "visit state is now empty " : " first path now is " + it.unimi.di.law.bubing.util.Util.toString( visitState.firstPath().pathQuery ) ) );
 						visitState.nextFetch = fetchData.endTime + rc.schemeAuthorityDelay; // Regular delay
 					}
 
@@ -370,10 +371,10 @@ public class ParsingThread extends Thread {
 													LOGGER.info( "Spammicity for " + visitState + ": " + visitState.spammicity + " (" + visitState.termCountUpdates + " updates)" );
 												}
 											}
-											if( dedupWorker != null ) {
+											if ( dedupWorker != null ) {
 												final Object result = parser.result();
-												if( result instanceof KnotDedupTextProcessor.Paragraphs ) {
-													dedupWorker.setParagraphs( (List<String>)result );
+												if ( result instanceof KnotDedupTextProcessor.Paragraphs ) {
+													dedupWorker.setParagraphs( (List<CharSequence>)result );
 												}
 											}
 										} catch( BufferOverflowException e ) {
@@ -410,16 +411,21 @@ public class ParsingThread extends Thread {
 					}
 					
 					boolean isNotDuplicate = streamLength == 0 || frontier.digests.addHash( digest ); // Essentially thread-safe; we do not consider zero-content pages as duplicates
-					// final long time = System.nanoTime();
-					if ( dedupWorker != null && streamLength != 0 && isNotDuplicate ) {
+					if ( dedupWorker != null && isNotDuplicate ) {
+						final long time = System.nanoTime();
 						float duplicityRate = dedupWorker.duplicityRate();
-						LOGGER.info( "Duplicity rate of {} is: {}", url, duplicityRate );
-						if( duplicityRate > rc.deduplicationThreshold ) {
+						if( !Float.isNaN( duplicityRate ) && duplicityRate > rc.deduplicationThreshold ) {
 							isNotDuplicate = false;
 						}
-						// final long time2 = System.nanoTime();
+						dedupWorker.setParagraphs( null );
+						final long time2 = System.nanoTime();
+						LOGGER.info( "Deduplicate time {}", (time2 - time ) );
+						LOGGER.info( "Duplicity rate of {} is {} isNotDuplicate={}", url, duplicityRate, Boolean.valueOf( isNotDuplicate ) );
 					}
-
+                                        
+                                        firstPath.nextFetch = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis( 1 );
+                                        this.frontier.distributor.revisit( visitState, firstPath );
+                                                
 					if ( LOGGER.isTraceEnabled() ) LOGGER.trace( "Decided that for {} isNotDuplicate={}", url, Boolean.valueOf( isNotDuplicate ) );
 					if ( isNotDuplicate ) for( URI u: linkReceiver ) frontierLinkReceiver.enqueue( u );
 					else fetchData.isDuplicate( true );
