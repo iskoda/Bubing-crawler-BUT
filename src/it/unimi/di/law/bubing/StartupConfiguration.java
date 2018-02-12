@@ -195,7 +195,11 @@ public class StartupConfiguration {
 	/** A filter that will be applied to all fetched resources to decide whether to store them. */
 	@FilterSpecification( type = URIResponse.class )
 	public Filter<URIResponse> storeFilter;
-
+        
+	/** A filter that will be applied to all fetched resources to decide whether to revisit them. */
+	@FilterSpecification( type = URIResponse.class )
+	public Filter<URIResponse> revisitFilter;
+        
 	/** If zero, connections are closed at each downloaded resource. 
 	 * Otherwise, the time span to download continuously from
 	 * the same site using the same connection. */
@@ -389,6 +393,9 @@ public class StartupConfiguration {
 	@OptionalSpecification(value="1234")
 	public int knotDedupPort;
 
+        @OptionalSpecification(value="UniformRevisitScheduler()")
+	public String revisitScheduler;
+                
 	/* Checks */
 	
 	@SuppressWarnings("unused")

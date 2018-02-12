@@ -125,6 +125,8 @@ public class VisitState implements Delayed, Serializable {
 	/** The spammicity score, if computed; -1, otherwise. */
 	public volatile float spammicity;
 	
+        public volatile boolean maxUrls;
+
 	/** Creates a visit state.
 	 * 
 	 * @param frontier the frontier for which the state is being created.
@@ -137,6 +139,7 @@ public class VisitState implements Delayed, Serializable {
 		pathQueries = new ObjectArrayFIFOQueue<PathQueryState>();
 		termCount = frontier != null && frontier.rc.spamDetector == null ? null : new Short2ShortOpenHashMap();
 		spammicity = -1;
+                maxUrls = false;
 	}
 	
 
@@ -196,7 +199,7 @@ public class VisitState implements Delayed, Serializable {
 		if ( ! RuntimeConfiguration.FETCH_ROBOTS ) return;
 		if ( nextFetch == Long.MAX_VALUE ) return;
                 
-                final PathQueryState robots = new PathQueryState( ROBOTS_PATH, 0 );
+                final PathQueryState robots = new PathQueryState( this, ROBOTS_PATH, 0 );
                 
 		synchronized( this ) { 
 			if ( pathQueries.isEmpty() ) {
@@ -218,7 +221,7 @@ public class VisitState implements Delayed, Serializable {
 	public synchronized void forciblyEnqueueRobotsFirst() {
 		if ( ! RuntimeConfiguration.FETCH_ROBOTS ) return;
                 
-                final PathQueryState robots = new PathQueryState( ROBOTS_PATH, 0 );
+                final PathQueryState robots = new PathQueryState( this, ROBOTS_PATH, 0 );
                 
 		pathQueries.enqueueFirst( robots );
 	}
@@ -275,8 +278,9 @@ public class VisitState implements Delayed, Serializable {
 			if ( nextFetch == Long.MAX_VALUE ) return;
 			final boolean wasEmpty = pathQueries.isEmpty();
 			pathQueries.enqueue( pathQuery );
+                        pathQuery.visitState = this;
 			if ( wasEmpty ) putInEntryIfNotAcquired();
-		}
+                }
 		frontier.pathQueriesInQueues.incrementAndGet();
 		frontier.weightOfpathQueriesInQueues.addAndGet( BURL.memoryUsageOf( pathQuery.pathQuery ) );
 	}
@@ -365,8 +369,16 @@ public class VisitState implements Delayed, Serializable {
 	public synchronized void schedulePurge() {
 		assert acquired || workbenchEntry == null : acquired + " " + workbenchEntry;
 		frontier.schemeAuthority2Count.put( schemeAuthority, Integer.MAX_VALUE );
-		nextFetch = Long.MAX_VALUE;
-		clear();
+		// nextFetch = Long.MAX_VALUE;
+		// clear();
+		maxUrls = true;
+		for ( int i = this.size(); i > 0; i-- ) {
+			PathQueryState pathQuery = dequeue();
+			if ( pathQuery.modified != PathQueryState.FIRST_VISIT ) {
+				this.enqueuePathQuery( pathQuery );
+			}
+		}
+		// TODO(kondrej) add trim (see clear())
 	}
 
 	/** Checks whether the current robots information has expired and, if necessary, schedules a new <code>robots.txt</code> download.
@@ -441,7 +453,7 @@ public class VisitState implements Delayed, Serializable {
 		field.setAccessible( true );
 		field.set( this, new ObjectArrayFIFOQueue<PathQueryState>( size ) );
 
-		while( size-- != 0 ) pathQueries.enqueue( new PathQueryState( Util.readByteArray( s ) ) );        //TODO(kondrej) read PathQueryState not only pathQuery
+		while( size-- != 0 ) pathQueries.enqueue( new PathQueryState( this, Util.readByteArray( s ) ) );        //TODO(kondrej) read PathQueryState not only pathQuery
 	}
 
 	private void updateTermCountEntry( Short2ShortMap.Entry e ) {

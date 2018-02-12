@@ -64,6 +64,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Iterators;
 import com.google.common.primitives.Ints;
+import it.unimi.di.law.bubing.frontier.revisit.RevisitScheduler;
 import it.unimi.di.law.knot.KnotDedup;
 
 //RELEASE-STATUS: DIST
@@ -124,6 +125,9 @@ public class RuntimeConfiguration {
 
 	/** @see StartupConfiguration#storeFilter */
 	public volatile Filter<URIResponse> storeFilter;
+
+	/** @see StartupConfiguration#revisitFilter */
+	public volatile Filter<URIResponse> revisitFilter;
 
 	/** @see StartupConfiguration#keepAliveTime */
 	public volatile long keepAliveTime;
@@ -262,6 +266,8 @@ public class RuntimeConfiguration {
 
 	public float deduplicationThreshold;
         
+        public RevisitScheduler revisitScheduler;
+
 	/* Global data not depending on a StartupConfiguration. */
 
 	/* Global data not initialised at startup. */
@@ -365,6 +371,7 @@ public class RuntimeConfiguration {
 			parseFilter = startupConfiguration.parseFilter;
 			followFilter = startupConfiguration.followFilter;
 			storeFilter = startupConfiguration.storeFilter;
+			revisitFilter = startupConfiguration.revisitFilter;
 			keepAliveTime = startupConfiguration.keepAliveTime;
 			schemeAuthorityDelay = startupConfiguration.schemeAuthorityDelay;
 			ipDelay = startupConfiguration.ipDelay;
@@ -452,7 +459,7 @@ public class RuntimeConfiguration {
 			responseBodyMaxByteSize = startupConfiguration.responseBodyMaxByteSize;
 			digestAlgorithm = startupConfiguration.digestAlgorithm;
 			parsers = parsersFromSpecs( startupConfiguration.parserSpec ); // Try to build parsers just to see if the specs are correct		
-
+                        revisitScheduler = ObjectParser.fromSpec( startupConfiguration.revisitScheduler, RevisitScheduler.class, new String[] { "it.unimi.di.law.frontier.revisit" } );
 			// State setup
 
 			paused = startPaused;

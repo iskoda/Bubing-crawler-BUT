@@ -422,20 +422,21 @@ public class ParsingThread extends Thread {
 						LOGGER.info( "Deduplicate time {}", (time2 - time ) );
 						LOGGER.info( "Duplicity rate of {} is {} isNotDuplicate={}", url, duplicityRate, Boolean.valueOf( isNotDuplicate ) );
 					}
-                                        
-                                        firstPath.nextFetch = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis( 1 );
-                                        this.frontier.distributor.revisit( visitState, firstPath );
-                                                
+                                                                                        
 					if ( LOGGER.isTraceEnabled() ) LOGGER.trace( "Decided that for {} isNotDuplicate={}", url, Boolean.valueOf( isNotDuplicate ) );
 					if ( isNotDuplicate ) for( URI u: linkReceiver ) frontierLinkReceiver.enqueue( u );
 					else fetchData.isDuplicate( true );
-					
+
+					if ( rc.revisitFilter.apply( fetchData ) ) {
+						rc.revisitScheduler.schedule( fetchData, firstPath, isNotDuplicate );
+						this.frontier.revisit.add( firstPath );
+					}
 					// ALERT: store exceptions should cause shutdown.
 					final String result;
 					if ( mustBeStored ) {
 						if ( isNotDuplicate ) {
 							// Soft, so we can change maxUrlsPerSchemeAuthority at runtime sensibly.
-							if ( frontier.schemeAuthority2Count.addTo( visitState.schemeAuthority, 1 ) >= rc.maxUrlsPerSchemeAuthority - 1 ) {
+							if ( firstPath.modified == PathQueryState.FIRST_VISIT && frontier.schemeAuthority2Count.addTo( visitState.schemeAuthority, 1 ) >= rc.maxUrlsPerSchemeAuthority - 1 ) {
 								LOGGER.info( "Reached maximum number of URLs for scheme+authority " + it.unimi.di.law.bubing.util.Util.toString( visitState.schemeAuthority ) );
 								visitState.schedulePurge();
 							}
